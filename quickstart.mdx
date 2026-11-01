@@ -11,11 +11,36 @@ description: "Get similar items for a product with one call."
     Ask for items similar to a product in your catalog. `q` takes the form `<key>:<value>`, for example `sku:ABC123`.
 
     ```bash
-    curl "https://cdn-api.syteapi.com/v1.1/similars?account_id=YOUR_ACCOUNT_ID&q=sku:YOUR_SKU&limit=12" \
+    curl "https://cdn-api.syteapi.com/v1.1/similars?account_id=YOUR_ACCOUNT_ID&q=sku:YOUR_SKU&limit=2&fields=sku,price,imageUrl,offer,brand" \
       -H "x-api-key: YOUR_API_KEY"
     ```
 
-    The similar items come back in `response`. The product you asked about comes back in `original_item`.
+    The similar items come back in `response`:
+
+    ```json
+    {
+      "response": [
+        {
+          "sku": "ABC124",
+          "price": "€25.99",
+          "imageUrl": "https://shop.example.com/images/abc124.jpg",
+          "offer": "https://shop.example.com/p/abc124.html",
+          "brand": "Example Brand"
+        },
+        {
+          "sku": "ABC131",
+          "price": "€19.99",
+          "imageUrl": "https://shop.example.com/images/abc131.jpg",
+          "offer": "https://shop.example.com/p/abc131.html",
+          "brand": "Example Brand"
+        }
+      ]
+    }
+    ```
+
+    <Note>
+      Without `fields`, each item only includes `sku`. List the product fields you want to render, such as `price`, `originalPrice`, `imageUrl`, `offer`, `brand`, `description` and `categories`.
+    </Note>
   </Step>
   <Step title="Track what shoppers do">
     Send events when shoppers see results, click them and buy. Without events, Syte can't measure click-through or revenue. See [Event tracking](/event-tracking).

@@ -160,6 +160,8 @@ paths:
           description: Malformed input, or an unknown gallery name.
         '500':
           description: A server error occurred while resolving an inspirational-images gallery match.
+        '401':
+          $ref: '#/components/responses/InvalidApiKey'
     post:
       tags:
       - Visual search
@@ -205,6 +207,8 @@ paths:
                 properties:
                   error:
                     type: string
+        '401':
+          $ref: '#/components/responses/InvalidApiKey'
       description: Detect bounding boxes from an uploaded image or a list of image URLs.
   /offers:
     get:
@@ -380,7 +384,13 @@ paths:
                   error:
                     type: string
         '404':
-          description: No matching offers were found for the queried image; this is a normal outcome, not an error.
+          description: No products matched the image.
+          content:
+            application/json:
+              example:
+                message: no matches found.
+        '401':
+          $ref: '#/components/responses/InvalidApiKey'
   /v1.1/similars:
     get:
       tags:
@@ -484,6 +494,36 @@ paths:
                         type: string
                       updatedAt:
                         type: string
+              example:
+                response:
+                - &id001
+                  sku: ABC124
+                  parent_sku: ABC100
+                  description: Striped cotton pyjamas
+                  price: €25.99
+                  originalPrice: €25.99
+                  floatPrice: 25.99
+                  floatOriginalPrice: 25.99
+                  imageUrl: https://shop.example.com/images/abc124.jpg
+                  offer: https://shop.example.com/p/abc124.html
+                  categories:
+                  - Women > Nightwear > Pyjamas
+                  brand: Example Brand
+                  merchant: Example Store
+                - &id002
+                  sku: ABC131
+                  parent_sku: ABC130
+                  description: Gingham cotton shorts
+                  price: €19.99
+                  originalPrice: €19.99
+                  floatPrice: 19.99
+                  floatOriginalPrice: 19.99
+                  imageUrl: https://shop.example.com/images/abc131.jpg
+                  offer: https://shop.example.com/p/abc131.html
+                  categories:
+                  - Women > Shorts
+                  brand: Example Brand
+                  merchant: Example Store
         '400':
           description: Missing or invalid required parameter, such as q.
           content:
@@ -493,7 +533,10 @@ paths:
                 properties:
                   error:
                     type: string
+        '401':
+          $ref: '#/components/responses/InvalidApiKey'
       description: Find visually or semantically similar items to a product or image (also used for Shop the Look).
+        By default each item only includes `sku`. Use `fields` to choose which product fields come back.
   /v1.1/personalization:
     get:
       tags:
@@ -561,11 +604,19 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PersonalizationResponse'
+              example:
+                results:
+                - *id001
+                - *id002
+                fallback: best_sellers
         '404':
           description: No items were found for this request.
         '500':
           description: An unrecognized value was supplied for syte_product or sorting_order.
-      description: Get personalized recommendations, or frequently-bought-together items.
+        '401':
+          $ref: '#/components/responses/InvalidApiKey'
+      description: Get personalized recommendations, or frequently-bought-together items. By default each item only
+        includes `sku`. Use `fields` to choose which product fields come back.
     post:
       tags:
       - Recommendations
@@ -619,11 +670,19 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PersonalizationResponse'
+              example:
+                results:
+                - *id001
+                - *id002
+                fallback: best_sellers
         '400':
           description: An unknown body field was supplied, or a required field is missing.
         '404':
           description: No items were found for this request.
-      description: Same as GET, but with a JSON request body instead of query parameters for the core inputs.
+        '401':
+          $ref: '#/components/responses/InvalidApiKey'
+      description: Same as GET, but with a JSON request body instead of query parameters for the core inputs. By
+        default each item only includes `sku`. Use `fields` to choose which product fields come back.
   /search/{accountId}/items:
     get:
       tags:
@@ -809,7 +868,17 @@ paths:
         '405':
           description: Returned for any method other than GET.
         '500':
-          description: The search backend returned an explicit error.
+          description: Server error. `missing feeds in config` means text search is not set up for your account
+            yet.
+          content:
+            application/json:
+              example:
+                error:
+                  requestId: 4c46871e-6169-471a-8e1b-13e873a72aee
+                  message: missing feeds in config
+                  code: 500
+        '401':
+          $ref: '#/components/responses/InvalidApiKey'
       description: Full-text search over the account's product catalog.
   /search/{accountId}/autocomplete:
     get:
@@ -955,11 +1024,21 @@ paths:
         '405':
           description: Returned for any method other than GET.
         '500':
-          description: An explicit error was returned from the autocomplete backend.
+          description: Server error. `missing feeds in config` means text search is not set up for your account
+            yet.
+          content:
+            application/json:
+              example:
+                error:
+                  requestId: 4c46871e-6169-471a-8e1b-13e873a72aee
+                  message: missing feeds in config
+                  code: 500
         '400':
           description: Non-numeric accountId, or a query longer than 150 characters.
         '403':
           description: The account is blacklisted.
+        '401':
+          $ref: '#/components/responses/InvalidApiKey'
       description: Get search-term autocomplete suggestions.
   /search/{accountId}/popularSearches:
     get:
@@ -1008,9 +1087,19 @@ paths:
         '404':
           description: No popular searches are available and the account does not allow empty results.
         '500':
-          description: An explicit error was returned from the popular-searches backend.
+          description: Server error. `missing feeds in config` means text search is not set up for your account
+            yet.
+          content:
+            application/json:
+              example:
+                error:
+                  requestId: 4c46871e-6169-471a-8e1b-13e873a72aee
+                  message: missing feeds in config
+                  code: 500
         '405':
           description: Returned for any method other than GET.
+        '401':
+          $ref: '#/components/responses/InvalidApiKey'
       description: Get the most popular search terms for the account.
   /et:
     servers:
@@ -2010,6 +2099,23 @@ components:
           type: string
         requestId:
           type: string
+  responses:
+    MissingApiKey:
+      description: No API key was sent.
+      content:
+        application/json:
+          example:
+            error:
+              message: API key is not provided
+              code: 400
+    InvalidApiKey:
+      description: The API key is not valid for this account.
+      content:
+        application/json:
+          example:
+            error:
+              message: API key YOUR_API_KEY is not valid
+              code: 401
 security:
 - ApiKeyHeader: []
 - ApiKeyQuery: []

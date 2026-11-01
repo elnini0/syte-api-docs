@@ -29,6 +29,13 @@ Send these on every event, in the query string.
 | `lang` | `en_US` | The shopper's locale |
 | `syte_url_referer` | `https%3A%2F%2Fshop.example.com%2Fp%2F123` | The page URL, URL-encoded |
 
+Syte's JavaScript tag sets `syte_uuid` and `session_id` for you. If you don't use the tag, generate them yourself: one UUID per shopper that stays the same across visits, and a session ID that changes after 30 minutes without activity. Use the same values on every event and API call for that shopper, or clicks and purchases can't be tied back to what they were shown.
+
+## What gets counted
+
+- A/B test results count purchases (`checkout_complete`) only. Add to cart and checkout started are accepted but don't affect A/B results.
+- Events show up in reports up to 24 hours after you send them.
+
 ## Ecommerce events
 
 These come from your site, so you send them yourself. They all carry a `rawData` field whose value is a **JSON string**, not an object.

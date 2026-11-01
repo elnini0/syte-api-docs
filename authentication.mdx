@@ -32,10 +32,19 @@ Your account ID is a number. Where it goes also depends on the endpoint.
 
 ## Errors
 
-Most endpoints check the account ID and key before anything else.
+Most endpoints check the account ID and key before anything else. Errors come back as JSON:
+
+```json
+{
+  "error": {
+    "message": "API key is not provided",
+    "code": 400
+  }
+}
+```
 
 | Status | Meaning |
 | --- | --- |
-| `400` | Account ID missing or not a number, API key missing, or the JSON body is invalid |
-| `401` | The API key doesn't match the account |
-| `403` | The account is blocked, isn't configured yet, or access is denied from your region |
+| `400` | The API key is missing, the account ID isn't a number, or the JSON body is invalid |
+| `401` | The API key isn't valid for this account |
+| `403` | The account ID is missing, the account is blocked or not configured yet, or access is denied from your region. A missing account ID returns an HTML error page, not JSON. |
