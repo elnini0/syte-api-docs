@@ -1,0 +1,149 @@
+---
+title: "Mobile SDKs"
+description: "Native iOS and Android SDKs for visual search, recommendations, text search and event tracking."
+---
+
+The SDKs wrap the same API as the rest of these docs, so you don't have to build the calls yourself. Both cover:
+
+- Visual search from an image or an image URL, including results for each detected product and manual cropping
+- Similar items, Shop the Look and personalized recommendations
+- Text search, autocomplete and popular searches
+- Sending events
+- Tracking viewed products and recent searches on the device
+
+You need your account ID and your API key. The SDKs call the key `signature`.
+
+<Tabs>
+  <Tab title="iOS">
+    **Repository:** [github.com/syte-ai/iOS-SDK](https://github.com/syte-ai/iOS-SDK)
+
+    ### Install
+
+    With Swift Package Manager, add this package URL in Xcode:
+
+    ```text
+    https://github.com/syte-ai/iOS-SDK.git
+    ```
+
+    Or with CocoaPods, add this to your Podfile:
+
+    ```ruby
+    pod 'Syte', :git => 'https://github.com/syte-ai/iOS-SDK.git'
+    ```
+
+    ### Initialize
+
+    ```swift
+    let configuration = SyteConfiguration(accountId: "YOUR_ACCOUNT_ID", signature: "YOUR_API_KEY")
+    configuration.locale = "en_US"
+
+    let syte = Syte(configuration: configuration)
+    ```
+
+    `Syte(configuration:)` returns an optional.
+
+    ### Visual search
+
+    ```swift
+    let search = UrlImageSearch(imageUrl: "https://shop.example.com/images/abc123.jpg",
+                                productType: .discoveryButton)
+
+    syte?.getBoundsForImageUrl(imageSearch: search) { result in
+        // SyteResult<BoundsResult>. Results for the first detected product
+        // are fetched automatically, in firstBoundItemsResult.
+    }
+    ```
+
+    For another detected product, call `getItemsForBound(bound:cropCoordinates:completion:)`. For a photo the shopper takes, use `ImageSearch(image:)` with `getBoundsForImage(imageSearch:completion:)`.
+
+    ### Other features
+
+    | Feature | Method |
+    | --- | --- |
+    | Similar items | `getSimilarProducts(similarProducts:completion:)` |
+    | Shop the Look | `getShopTheLook(shopTheLook:completion:)` |
+    | Personalized recommendations | `getPersonalization(personalization:completion:)` |
+    | Text search | `getTextSearch(textSearch:completion:)` |
+    | Autocomplete | `getAutoCompleteForTextSearch(query:lang:completion:)` |
+    | Popular searches | `getPopularSearches(lang:completion:)` |
+    | Send an event | `fire(event:)` |
+    | Record a viewed product | `try addViewedProduct(sku:)` |
+
+    Personalized recommendations need at least one viewed product, so call `addViewedProduct(sku:)` first.
+  </Tab>
+  <Tab title="Android">
+    **Repository:** [github.com/syte-ai/Android-SDK](https://github.com/syte-ai/Android-SDK)
+
+    Requires Android API 21 or higher.
+
+    ### Install
+
+    Add JitPack to your repositories:
+
+    ```groovy
+    allprojects {
+        repositories {
+            maven { url 'https://jitpack.io' }
+        }
+    }
+    ```
+
+    Add the dependency:
+
+    ```groovy
+    dependencies {
+        implementation 'com.github.syte-ai:Android-SDK:1.0.0'
+    }
+    ```
+
+    If `minifyEnabled` is on, add this to `proguard-rules.pro`:
+
+    ```text
+    -keep class com.syte.ai.android_sdk.data.** { *; }
+    ```
+
+    ### Initialize
+
+    ```java
+    SyteConfiguration configuration = new SyteConfiguration(context, "YOUR_ACCOUNT_ID", "YOUR_API_KEY");
+    configuration.setLocale("en_US");
+
+    Syte syte = Syte.newInstance(configuration);
+    ```
+
+    ### Visual search
+
+    ```java
+    UrlImageSearch search = new UrlImageSearch(
+        "https://shop.example.com/images/abc123.jpg",
+        SyteProductType.DISCOVERY_BUTTON
+    );
+
+    syte.getBoundsForImageUrlAsync(search, result -> {
+        // Results for the first detected product are fetched automatically,
+        // in getItemsForFirstBound().
+    });
+    ```
+
+    For another detected product, call `getItemsForBoundAsync(bound, cropCoordinates, callback)`. For a photo the shopper takes, use `ImageSearch` with `getBoundsForImageAsync(context, imageSearch, callback)`.
+
+    Most calls have a blocking version and an `Async` version with a callback, which always runs on the UI thread. Don't call the blocking versions on the main thread.
+
+    ### Other features
+
+    | Feature | Method |
+    | --- | --- |
+    | Similar items | `getSimilarProductsAsync(...)` |
+    | Shop the Look | `getShopTheLookAsync(...)` |
+    | Personalized recommendations | `getPersonalizedProductsAsync(...)` |
+    | Text search | `getTextSearchAsync(textSearch, callback)` |
+    | Autocomplete | `getAutoCompleteForTextSearch(query, callback)` |
+    | Popular searches | `getPopularSearchesAsync(lang, callback)` |
+    | Send an event | `fireEvent(event)` |
+    | Record a viewed product | `addViewedProduct(sku)` |
+
+    Personalized recommendations need at least one viewed product, so call `addViewedProduct(sku)` first.
+  </Tab>
+</Tabs>
+
+The repository READMEs have the full list of classes and options.

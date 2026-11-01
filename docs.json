@@ -31,6 +31,12 @@
               "visual-search",
               "event-tracking"
             ]
+          },
+          {
+            "group": "SDKs",
+            "pages": [
+              "sdks"
+            ]
           }
         ]
       },
