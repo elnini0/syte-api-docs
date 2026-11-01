@@ -1206,10 +1206,72 @@ paths:
       tags:
       - Event tracking
       summary: Track an event
-      description: Track an interaction event (schema-less tracking beacon). Also reachable at /eet. Query string
-        and JSON body are merged into a single event payload.
+      description: Sends one event. Put the event type in `name` and the shopper and page details in the query string,
+        and the event data in the JSON body. Query string and body are merged, and the query string wins on a conflict.
+        Always returns `204`, even for a wrong event name or field, so check your first events with Syte. Only served
+        on syteapi.com. Also reachable at /eet. See the [Event tracking guide](/event-tracking).
       operationId: trackEvent
       parameters:
+      - name: name
+        in: query
+        required: true
+        schema:
+          type: string
+          enum:
+          - products_added_to_cart
+          - checkout_start
+          - checkout_complete
+          - fe_page_view
+          - fe_discovery_button_impression
+          - fe_discovery_button_click
+          - fe_camera_button_impression
+          - fe_bounds
+          - fe_bb_show_layout
+          - fe_bb_show_results
+          - fe_offers
+          - fe_offer_click
+          - fe_sort_results
+          - fe_camera_cropper_fb
+        example: checkout_complete
+        description: The event type. You send the ecommerce events (`products_added_to_cart`, `checkout_start`,
+          `checkout_complete`). The `fe_` events are sent by Syte's JavaScript tag, or by you if you build the experience
+          through the API. The endpoint accepts any value and never rejects a misspelled one.
+      - name: syte_uuid
+        in: query
+        required: false
+        schema:
+          type: string
+        example: 3937ccd0-9b3b-11f1-abcb-bb174bf5c8dd
+        description: A stable ID for the shopper, the same across visits. Use the same value on every event and
+          API call for that shopper.
+      - name: session_id
+        in: query
+        required: false
+        schema:
+          type: string
+        example: '65456370'
+        description: The shopper's current session. A new one starts after 30 minutes without activity.
+      - name: lang
+        in: query
+        required: false
+        schema:
+          type: string
+        example: en_US
+        description: The shopper's locale.
+      - name: syte_url_referer
+        in: query
+        required: false
+        schema:
+          type: string
+        example: https%3A%2F%2Fshop.example.com%2Fp%2Fabc123
+        description: The page URL the event happened on, URL-encoded.
+      - name: tags
+        in: query
+        required: false
+        schema:
+          type: string
+        example: ecommerce
+        description: Where the event comes from, for example `ecommerce`, `discovery_button` or `camera`.
       - $ref: '#/components/parameters/AccountId'
       - $ref: '#/components/parameters/UserUuid'
       - $ref: '#/components/parameters/SessionSkus'
@@ -1228,7 +1290,93 @@ paths:
             schema:
               type: object
               additionalProperties: true
-              description: Arbitrary key/value pairs merged into the tracked event.
+              description: The event data. Its fields depend on the event type, see the examples. Ecommerce events
+                carry everything in `rawData`, which is a JSON string, not an object. Fields are not validated,
+                so a misspelled field is silently ignored.
+            examples:
+              products_added_to_cart:
+                summary: products_added_to_cart
+                description: Add to cart
+                value:
+                  rawData: '{"products":[{"sku":"ABC123","quantity":1,"price":49.99}]}'
+                  new_user: 'TRUE'
+              checkout_start:
+                summary: checkout_start
+                description: Checkout started
+                value:
+                  rawData: '{"value":"62.94","currency":"EUR","products":[{"sku":"ABC123","quantity":1,"price":"59.99"}]}'
+                  new_user: 'TRUE'
+              checkout_complete:
+                summary: checkout_complete
+                description: Purchase. `id` (order ID) inside rawData is required, or the purchase is never counted.
+                value:
+                  rawData: '{"id":"ORDER-1001","value":"23.79","currency":"EUR","products":[{"sku":"ABC123","quantity":1,"price":"19.99"},{"sku":"DEF456","quantity":1,"price":"8.00"}]}'
+                  new_user: 'TRUE'
+              fe_discovery_button_impression:
+                summary: fe_discovery_button_impression
+                description: Discovery button shown
+                value:
+                  placement: main-image
+                  imageSrc: https://shop.example.com/images/abc123.jpg
+                  sku: ABC123
+                  new_user: 'TRUE'
+              fe_discovery_button_click:
+                summary: fe_discovery_button_click
+                description: Discovery button clicked
+                value:
+                  placement: main-image
+                  imageSrc: https://shop.example.com/images/abc123.jpg
+                  sku: ABC123
+                  new_user: 'TRUE'
+              fe_bounds:
+                summary: fe_bounds
+                description: Products detected in an image
+                value:
+                  count: 2
+                  new_user: 'TRUE'
+              fe_offers:
+                summary: fe_offers
+                description: Matching products requested
+                value:
+                  offer_url: https%3A%2F%2Fcdn-api.syteapi.com%2Fv1.1%2Foffers%3F...
+                  new_user: 'TRUE'
+              fe_bb_show_results:
+                summary: fe_bb_show_results
+                description: Results shown for a detected product. The click-through denominator.
+                value:
+                  image_url: https://shop.example.com/images/abc123.jpg
+                  category: Trousers
+                  results_count: 20
+                  skus: ABC124,ABC125,ABC126
+                  offers_strategy: image_with_sku
+                  sku: ABC123
+                  bound_index: 0
+                  is_fallback_bound: false
+                  new_user: 'TRUE'
+              fe_offer_click:
+                summary: fe_offer_click
+                description: Result clicked. The click-through numerator. Matched to its results by session_id and
+                  syte_uuid, with source_sku equal to the results event's sku.
+                value:
+                  sku: ABC124
+                  position: 1
+                  offers_strategy: image_with_sku
+                  source_sku: ABC123
+                  placement: main-image
+                  target_url: https://shop.example.com/p/abc124.html
+                  new_user: 'TRUE'
+              fe_sort_results:
+                summary: fe_sort_results
+                description: Results re-sorted
+                value:
+                  sort_by: most_similars
+                  new_user: 'TRUE'
+              fe_camera_cropper_fb:
+                summary: fe_camera_cropper_fb
+                description: Camera cropper used
+                value:
+                  cropper_enabled: true
+                  new_user: 'TRUE'
       responses:
         '204':
           description: Event accepted. Always 204 No Content.
@@ -1242,9 +1390,69 @@ paths:
       tags:
       - Event tracking
       summary: Track an event (GET)
-      description: Same as the POST version, sent as a GET. Also reachable at /eet.
+      description: Same as the POST version, sent as a GET. Also reachable at /eet. See the [Event tracking guide](/event-tracking).
       operationId: trackEventGet
       parameters:
+      - name: name
+        in: query
+        required: true
+        schema:
+          type: string
+          enum:
+          - products_added_to_cart
+          - checkout_start
+          - checkout_complete
+          - fe_page_view
+          - fe_discovery_button_impression
+          - fe_discovery_button_click
+          - fe_camera_button_impression
+          - fe_bounds
+          - fe_bb_show_layout
+          - fe_bb_show_results
+          - fe_offers
+          - fe_offer_click
+          - fe_sort_results
+          - fe_camera_cropper_fb
+        example: checkout_complete
+        description: The event type. You send the ecommerce events (`products_added_to_cart`, `checkout_start`,
+          `checkout_complete`). The `fe_` events are sent by Syte's JavaScript tag, or by you if you build the experience
+          through the API. The endpoint accepts any value and never rejects a misspelled one.
+      - name: syte_uuid
+        in: query
+        required: false
+        schema:
+          type: string
+        example: 3937ccd0-9b3b-11f1-abcb-bb174bf5c8dd
+        description: A stable ID for the shopper, the same across visits. Use the same value on every event and
+          API call for that shopper.
+      - name: session_id
+        in: query
+        required: false
+        schema:
+          type: string
+        example: '65456370'
+        description: The shopper's current session. A new one starts after 30 minutes without activity.
+      - name: lang
+        in: query
+        required: false
+        schema:
+          type: string
+        example: en_US
+        description: The shopper's locale.
+      - name: syte_url_referer
+        in: query
+        required: false
+        schema:
+          type: string
+        example: https%3A%2F%2Fshop.example.com%2Fp%2Fabc123
+        description: The page URL the event happened on, URL-encoded.
+      - name: tags
+        in: query
+        required: false
+        schema:
+          type: string
+        example: ecommerce
+        description: Where the event comes from, for example `ecommerce`, `discovery_button` or `camera`.
       - $ref: '#/components/parameters/AccountId'
       - $ref: '#/components/parameters/UserUuid'
       - $ref: '#/components/parameters/SessionSkus'
@@ -1263,7 +1471,93 @@ paths:
             schema:
               type: object
               additionalProperties: true
-              description: Same optional merge-in body semantics as the POST operation above.
+              description: The event data. Its fields depend on the event type, see the examples. Ecommerce events
+                carry everything in `rawData`, which is a JSON string, not an object. Fields are not validated,
+                so a misspelled field is silently ignored.
+            examples:
+              products_added_to_cart:
+                summary: products_added_to_cart
+                description: Add to cart
+                value:
+                  rawData: '{"products":[{"sku":"ABC123","quantity":1,"price":49.99}]}'
+                  new_user: 'TRUE'
+              checkout_start:
+                summary: checkout_start
+                description: Checkout started
+                value:
+                  rawData: '{"value":"62.94","currency":"EUR","products":[{"sku":"ABC123","quantity":1,"price":"59.99"}]}'
+                  new_user: 'TRUE'
+              checkout_complete:
+                summary: checkout_complete
+                description: Purchase. `id` (order ID) inside rawData is required, or the purchase is never counted.
+                value:
+                  rawData: '{"id":"ORDER-1001","value":"23.79","currency":"EUR","products":[{"sku":"ABC123","quantity":1,"price":"19.99"},{"sku":"DEF456","quantity":1,"price":"8.00"}]}'
+                  new_user: 'TRUE'
+              fe_discovery_button_impression:
+                summary: fe_discovery_button_impression
+                description: Discovery button shown
+                value:
+                  placement: main-image
+                  imageSrc: https://shop.example.com/images/abc123.jpg
+                  sku: ABC123
+                  new_user: 'TRUE'
+              fe_discovery_button_click:
+                summary: fe_discovery_button_click
+                description: Discovery button clicked
+                value:
+                  placement: main-image
+                  imageSrc: https://shop.example.com/images/abc123.jpg
+                  sku: ABC123
+                  new_user: 'TRUE'
+              fe_bounds:
+                summary: fe_bounds
+                description: Products detected in an image
+                value:
+                  count: 2
+                  new_user: 'TRUE'
+              fe_offers:
+                summary: fe_offers
+                description: Matching products requested
+                value:
+                  offer_url: https%3A%2F%2Fcdn-api.syteapi.com%2Fv1.1%2Foffers%3F...
+                  new_user: 'TRUE'
+              fe_bb_show_results:
+                summary: fe_bb_show_results
+                description: Results shown for a detected product. The click-through denominator.
+                value:
+                  image_url: https://shop.example.com/images/abc123.jpg
+                  category: Trousers
+                  results_count: 20
+                  skus: ABC124,ABC125,ABC126
+                  offers_strategy: image_with_sku
+                  sku: ABC123
+                  bound_index: 0
+                  is_fallback_bound: false
+                  new_user: 'TRUE'
+              fe_offer_click:
+                summary: fe_offer_click
+                description: Result clicked. The click-through numerator. Matched to its results by session_id and
+                  syte_uuid, with source_sku equal to the results event's sku.
+                value:
+                  sku: ABC124
+                  position: 1
+                  offers_strategy: image_with_sku
+                  source_sku: ABC123
+                  placement: main-image
+                  target_url: https://shop.example.com/p/abc124.html
+                  new_user: 'TRUE'
+              fe_sort_results:
+                summary: fe_sort_results
+                description: Results re-sorted
+                value:
+                  sort_by: most_similars
+                  new_user: 'TRUE'
+              fe_camera_cropper_fb:
+                summary: fe_camera_cropper_fb
+                description: Camera cropper used
+                value:
+                  cropper_enabled: true
+                  new_user: 'TRUE'
       responses:
         '204':
           description: Event accepted. Always 204 No Content.
@@ -1283,6 +1577,66 @@ paths:
       summary: Track an event (alias)
       operationId: trackEventAlias
       parameters:
+      - name: name
+        in: query
+        required: true
+        schema:
+          type: string
+          enum:
+          - products_added_to_cart
+          - checkout_start
+          - checkout_complete
+          - fe_page_view
+          - fe_discovery_button_impression
+          - fe_discovery_button_click
+          - fe_camera_button_impression
+          - fe_bounds
+          - fe_bb_show_layout
+          - fe_bb_show_results
+          - fe_offers
+          - fe_offer_click
+          - fe_sort_results
+          - fe_camera_cropper_fb
+        example: checkout_complete
+        description: The event type. You send the ecommerce events (`products_added_to_cart`, `checkout_start`,
+          `checkout_complete`). The `fe_` events are sent by Syte's JavaScript tag, or by you if you build the experience
+          through the API. The endpoint accepts any value and never rejects a misspelled one.
+      - name: syte_uuid
+        in: query
+        required: false
+        schema:
+          type: string
+        example: 3937ccd0-9b3b-11f1-abcb-bb174bf5c8dd
+        description: A stable ID for the shopper, the same across visits. Use the same value on every event and
+          API call for that shopper.
+      - name: session_id
+        in: query
+        required: false
+        schema:
+          type: string
+        example: '65456370'
+        description: The shopper's current session. A new one starts after 30 minutes without activity.
+      - name: lang
+        in: query
+        required: false
+        schema:
+          type: string
+        example: en_US
+        description: The shopper's locale.
+      - name: syte_url_referer
+        in: query
+        required: false
+        schema:
+          type: string
+        example: https%3A%2F%2Fshop.example.com%2Fp%2Fabc123
+        description: The page URL the event happened on, URL-encoded.
+      - name: tags
+        in: query
+        required: false
+        schema:
+          type: string
+        example: ecommerce
+        description: Where the event comes from, for example `ecommerce`, `discovery_button` or `camera`.
       - $ref: '#/components/parameters/AccountId'
       - $ref: '#/components/parameters/UserUuid'
       - $ref: '#/components/parameters/SessionSkus'
@@ -1301,7 +1655,93 @@ paths:
             schema:
               type: object
               additionalProperties: true
-              description: Same optional merge-in body semantics as /et's POST operation.
+              description: The event data. Its fields depend on the event type, see the examples. Ecommerce events
+                carry everything in `rawData`, which is a JSON string, not an object. Fields are not validated,
+                so a misspelled field is silently ignored.
+            examples:
+              products_added_to_cart:
+                summary: products_added_to_cart
+                description: Add to cart
+                value:
+                  rawData: '{"products":[{"sku":"ABC123","quantity":1,"price":49.99}]}'
+                  new_user: 'TRUE'
+              checkout_start:
+                summary: checkout_start
+                description: Checkout started
+                value:
+                  rawData: '{"value":"62.94","currency":"EUR","products":[{"sku":"ABC123","quantity":1,"price":"59.99"}]}'
+                  new_user: 'TRUE'
+              checkout_complete:
+                summary: checkout_complete
+                description: Purchase. `id` (order ID) inside rawData is required, or the purchase is never counted.
+                value:
+                  rawData: '{"id":"ORDER-1001","value":"23.79","currency":"EUR","products":[{"sku":"ABC123","quantity":1,"price":"19.99"},{"sku":"DEF456","quantity":1,"price":"8.00"}]}'
+                  new_user: 'TRUE'
+              fe_discovery_button_impression:
+                summary: fe_discovery_button_impression
+                description: Discovery button shown
+                value:
+                  placement: main-image
+                  imageSrc: https://shop.example.com/images/abc123.jpg
+                  sku: ABC123
+                  new_user: 'TRUE'
+              fe_discovery_button_click:
+                summary: fe_discovery_button_click
+                description: Discovery button clicked
+                value:
+                  placement: main-image
+                  imageSrc: https://shop.example.com/images/abc123.jpg
+                  sku: ABC123
+                  new_user: 'TRUE'
+              fe_bounds:
+                summary: fe_bounds
+                description: Products detected in an image
+                value:
+                  count: 2
+                  new_user: 'TRUE'
+              fe_offers:
+                summary: fe_offers
+                description: Matching products requested
+                value:
+                  offer_url: https%3A%2F%2Fcdn-api.syteapi.com%2Fv1.1%2Foffers%3F...
+                  new_user: 'TRUE'
+              fe_bb_show_results:
+                summary: fe_bb_show_results
+                description: Results shown for a detected product. The click-through denominator.
+                value:
+                  image_url: https://shop.example.com/images/abc123.jpg
+                  category: Trousers
+                  results_count: 20
+                  skus: ABC124,ABC125,ABC126
+                  offers_strategy: image_with_sku
+                  sku: ABC123
+                  bound_index: 0
+                  is_fallback_bound: false
+                  new_user: 'TRUE'
+              fe_offer_click:
+                summary: fe_offer_click
+                description: Result clicked. The click-through numerator. Matched to its results by session_id and
+                  syte_uuid, with source_sku equal to the results event's sku.
+                value:
+                  sku: ABC124
+                  position: 1
+                  offers_strategy: image_with_sku
+                  source_sku: ABC123
+                  placement: main-image
+                  target_url: https://shop.example.com/p/abc124.html
+                  new_user: 'TRUE'
+              fe_sort_results:
+                summary: fe_sort_results
+                description: Results re-sorted
+                value:
+                  sort_by: most_similars
+                  new_user: 'TRUE'
+              fe_camera_cropper_fb:
+                summary: fe_camera_cropper_fb
+                description: Camera cropper used
+                value:
+                  cropper_enabled: true
+                  new_user: 'TRUE'
       responses:
         '204':
           description: Event accepted. Always 204 No Content.
@@ -1319,6 +1759,66 @@ paths:
       summary: Track an event (alias, GET)
       operationId: trackEventGetAlias
       parameters:
+      - name: name
+        in: query
+        required: true
+        schema:
+          type: string
+          enum:
+          - products_added_to_cart
+          - checkout_start
+          - checkout_complete
+          - fe_page_view
+          - fe_discovery_button_impression
+          - fe_discovery_button_click
+          - fe_camera_button_impression
+          - fe_bounds
+          - fe_bb_show_layout
+          - fe_bb_show_results
+          - fe_offers
+          - fe_offer_click
+          - fe_sort_results
+          - fe_camera_cropper_fb
+        example: checkout_complete
+        description: The event type. You send the ecommerce events (`products_added_to_cart`, `checkout_start`,
+          `checkout_complete`). The `fe_` events are sent by Syte's JavaScript tag, or by you if you build the experience
+          through the API. The endpoint accepts any value and never rejects a misspelled one.
+      - name: syte_uuid
+        in: query
+        required: false
+        schema:
+          type: string
+        example: 3937ccd0-9b3b-11f1-abcb-bb174bf5c8dd
+        description: A stable ID for the shopper, the same across visits. Use the same value on every event and
+          API call for that shopper.
+      - name: session_id
+        in: query
+        required: false
+        schema:
+          type: string
+        example: '65456370'
+        description: The shopper's current session. A new one starts after 30 minutes without activity.
+      - name: lang
+        in: query
+        required: false
+        schema:
+          type: string
+        example: en_US
+        description: The shopper's locale.
+      - name: syte_url_referer
+        in: query
+        required: false
+        schema:
+          type: string
+        example: https%3A%2F%2Fshop.example.com%2Fp%2Fabc123
+        description: The page URL the event happened on, URL-encoded.
+      - name: tags
+        in: query
+        required: false
+        schema:
+          type: string
+        example: ecommerce
+        description: Where the event comes from, for example `ecommerce`, `discovery_button` or `camera`.
       - $ref: '#/components/parameters/AccountId'
       - $ref: '#/components/parameters/UserUuid'
       - $ref: '#/components/parameters/SessionSkus'
@@ -1337,7 +1837,93 @@ paths:
             schema:
               type: object
               additionalProperties: true
-              description: Same optional merge-in body semantics as /et's GET operation.
+              description: The event data. Its fields depend on the event type, see the examples. Ecommerce events
+                carry everything in `rawData`, which is a JSON string, not an object. Fields are not validated,
+                so a misspelled field is silently ignored.
+            examples:
+              products_added_to_cart:
+                summary: products_added_to_cart
+                description: Add to cart
+                value:
+                  rawData: '{"products":[{"sku":"ABC123","quantity":1,"price":49.99}]}'
+                  new_user: 'TRUE'
+              checkout_start:
+                summary: checkout_start
+                description: Checkout started
+                value:
+                  rawData: '{"value":"62.94","currency":"EUR","products":[{"sku":"ABC123","quantity":1,"price":"59.99"}]}'
+                  new_user: 'TRUE'
+              checkout_complete:
+                summary: checkout_complete
+                description: Purchase. `id` (order ID) inside rawData is required, or the purchase is never counted.
+                value:
+                  rawData: '{"id":"ORDER-1001","value":"23.79","currency":"EUR","products":[{"sku":"ABC123","quantity":1,"price":"19.99"},{"sku":"DEF456","quantity":1,"price":"8.00"}]}'
+                  new_user: 'TRUE'
+              fe_discovery_button_impression:
+                summary: fe_discovery_button_impression
+                description: Discovery button shown
+                value:
+                  placement: main-image
+                  imageSrc: https://shop.example.com/images/abc123.jpg
+                  sku: ABC123
+                  new_user: 'TRUE'
+              fe_discovery_button_click:
+                summary: fe_discovery_button_click
+                description: Discovery button clicked
+                value:
+                  placement: main-image
+                  imageSrc: https://shop.example.com/images/abc123.jpg
+                  sku: ABC123
+                  new_user: 'TRUE'
+              fe_bounds:
+                summary: fe_bounds
+                description: Products detected in an image
+                value:
+                  count: 2
+                  new_user: 'TRUE'
+              fe_offers:
+                summary: fe_offers
+                description: Matching products requested
+                value:
+                  offer_url: https%3A%2F%2Fcdn-api.syteapi.com%2Fv1.1%2Foffers%3F...
+                  new_user: 'TRUE'
+              fe_bb_show_results:
+                summary: fe_bb_show_results
+                description: Results shown for a detected product. The click-through denominator.
+                value:
+                  image_url: https://shop.example.com/images/abc123.jpg
+                  category: Trousers
+                  results_count: 20
+                  skus: ABC124,ABC125,ABC126
+                  offers_strategy: image_with_sku
+                  sku: ABC123
+                  bound_index: 0
+                  is_fallback_bound: false
+                  new_user: 'TRUE'
+              fe_offer_click:
+                summary: fe_offer_click
+                description: Result clicked. The click-through numerator. Matched to its results by session_id and
+                  syte_uuid, with source_sku equal to the results event's sku.
+                value:
+                  sku: ABC124
+                  position: 1
+                  offers_strategy: image_with_sku
+                  source_sku: ABC123
+                  placement: main-image
+                  target_url: https://shop.example.com/p/abc124.html
+                  new_user: 'TRUE'
+              fe_sort_results:
+                summary: fe_sort_results
+                description: Results re-sorted
+                value:
+                  sort_by: most_similars
+                  new_user: 'TRUE'
+              fe_camera_cropper_fb:
+                summary: fe_camera_cropper_fb
+                description: Camera cropper used
+                value:
+                  cropper_enabled: true
+                  new_user: 'TRUE'
       responses:
         '204':
           description: Event accepted. Always 204 No Content.
