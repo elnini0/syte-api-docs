@@ -11,13 +11,14 @@ How you pass the key depends on the endpoint.
 
 | Endpoints | Pass the key as |
 | --- | --- |
-| Visual search, similar items, personalized recommendations, text search, event tracking | `x-api-key` header, or `api_key` query parameter |
+| Visual search, similar items, personalized recommendations, event tracking | `x-api-key` header, or `api_key` query parameter |
+| Text search, autocomplete, popular searches | `sig` query parameter only |
 | Recently viewed, collections, galleries, widgets | `syte-api-key` header only |
 
 If you send both `x-api-key` and `api_key`, the header wins.
 
 <Warning>
-  Recently viewed, collections, galleries and widgets do not accept `x-api-key` or `api_key`. Use the `syte-api-key` header for those.
+  Text search, autocomplete and popular searches reject `x-api-key` and `api_key` with a `403`. Pass the key as `sig` in the query string. Recently viewed, collections, galleries and widgets need the `syte-api-key` header.
 </Warning>
 
 ## Account ID

@@ -21,8 +21,9 @@ paths:
       tags:
       - Visual search
       summary: Detect products in an image
-      description: Detect bounding boxes in an image and return matched offers for each box. Also reachable at /offers/bb
-        and /v1.0/offers/bb.
+      description: 'Detects the products in an image and returns one entry per detected item, with its category,
+        position and an `offers` link. Call that link to get matching products from your catalog. Do not send `fields`
+        here: it makes the call fail with `422 malformed url list`. Add `fields` to the offers call instead.'
       operationId: getBoundsGET
       parameters:
       - name: imageUrl
@@ -53,7 +54,6 @@ paths:
       - $ref: '#/components/parameters/SessionId'
       - $ref: '#/components/parameters/SessionSkus'
       - $ref: '#/components/parameters/Locale'
-      - $ref: '#/components/parameters/Fields'
       - $ref: '#/components/parameters/AccountId'
       - name: syte_uuid
         in: query
@@ -98,8 +98,6 @@ paths:
                     type: string
                   variantId:
                     type: string
-                  latencies:
-                    type: object
                   meta:
                     type: object
                     properties:
@@ -145,6 +143,21 @@ paths:
                       matchDetails:
                         type: object
                         description: Present only when `syte_product=inspirational_images`.
+              example:
+                https://shop.example.com/images/abc124.jpg:
+                - label: Shirts
+                  gender: female
+                  catalog: fashion
+                  center:
+                  - 0.49
+                  - 0.33
+                  b0:
+                  - 0.34
+                  - 0.19
+                  b1:
+                  - 0.64
+                  - 0.48
+                  offers: https://cdn-api.syteapi.com/v1.1/offers?image_url=BASE64_IMAGE_URL&crop=BASE64_CROP&cats=BASE64_CATEGORY&catalog=fashion&gender=female&syte_product=discovery_button&account_id=YOUR_ACCOUNT_ID&sig=YOUR_API_KEY
         '400':
           description: Missing or invalid required parameter.
           content:
@@ -157,7 +170,10 @@ paths:
         '403':
           description: The image URL is not on the account's whitelisted domains.
         '422':
-          description: Malformed input, or an unknown gallery name.
+          description: The request could not be parsed, for example because `fields` was sent.
+          content:
+            application/json:
+              example: malformed url list
         '500':
           description: A server error occurred while resolving an inspirational-images gallery match.
         '401':
@@ -215,7 +231,9 @@ paths:
       tags:
       - Visual search
       summary: Find products matching an image
-      description: Find product offers that visually match a queried image. Also reachable at /v1.1/offers.
+      description: Returns catalog products that match one detected item. Usually you call the `offers` link returned
+        by Detect products, adding `fields` for the product data you need and `size` for how many results. Also
+        reachable at /v1.1/offers.
       operationId: getOffers
       parameters:
       - name: image_url
@@ -304,7 +322,7 @@ paths:
         schema:
           type: integer
         example: 24
-        description: Maximum number of offers to return.
+        description: Ignored on this endpoint. Use `size` to control how many results come back.
       - name: from
         in: query
         required: false
@@ -352,9 +370,6 @@ paths:
                     type: string
                   currency_symbol:
                     type: string
-                  backend_filters_enabled:
-                    type: boolean
-                    description: Always present.
                   aggregations:
                     type: object
                     description: Present only when `add_aggregations` is set and at least one facet was computed.
@@ -374,6 +389,26 @@ paths:
                         type: string
                       updatedAt:
                         type: string
+              example:
+                total: 100
+                currency_tla: EUR
+                currency_symbol: €
+                ads:
+                - sku: ABC124
+                  parent_sku: ABC100
+                  description: Striped cotton shirt
+                  price: €19.99
+                  originalPrice: €19.99
+                  floatPrice: 19.99
+                  floatOriginalPrice: 19.99
+                  imageUrl: https://shop.example.com/images/abc124.jpg
+                  offer: https://shop.example.com/p/abc124.html
+                  categories:
+                  - Women > Tops > Shirts
+                  brand: Example Brand
+                  merchant: Example Store
+                  bbCategories:
+                  - Shirts
         '400':
           description: Missing or invalid required parameter.
           content:
@@ -698,6 +733,13 @@ paths:
           pattern: ^[0-9]+$
         example: '12345'
         description: Identifies the account to search within; must be numeric.
+      - name: query
+        in: query
+        required: false
+        schema:
+          type: string
+        example: robe
+        description: The search term.
       - name: filters
         in: query
         required: false
@@ -854,6 +896,28 @@ paths:
                         type: string
                       updatedAt:
                         type: string
+              example:
+                searchType: regular
+                result:
+                  total: 9
+                  suggestedPages: []
+                  recognizedTagging: {}
+                  hits:
+                  - sku: ABC210
+                    parent_sku: ABC200
+                    title: Fleece robe
+                    description: Fleece robe
+                    price: €45.99
+                    originalPrice: €45.99
+                    floatPrice: '45.99'
+                    floatOriginalPrice: '45.99'
+                    imageUrl: https://shop.example.com/images/abc210.jpg
+                    offer: https://shop.example.com/p/abc210.html
+                    brand: Example Brand
+                    syte_sizes: '["L"]'
+                    syte_colors: '["Grey"]'
+                    score: 50
+                    sales_count: 0
         '400':
           description: Non-numeric accountId, or a query longer than 150 characters.
           content:
@@ -879,7 +943,10 @@ paths:
                   code: 500
         '401':
           $ref: '#/components/responses/InvalidApiKey'
-      description: Full-text search over the account's product catalog.
+      description: Full-text search over the account's product catalog. `searchType` is `fallback` when nothing
+        matched the term directly and fallback results were returned.
+      security:
+      - SigQuery: []
   /search/{accountId}/autocomplete:
     get:
       tags:
@@ -1020,7 +1087,11 @@ paths:
         '204':
           description: No results were found and the account allows empty results.
         '404':
-          description: No results were found and the account does not allow empty results.
+          description: No data for this account yet.
+          content:
+            application/json:
+              example:
+                requestId: fd66c3e0-b14d-43d4-981a-8e74741092b0
         '405':
           description: Returned for any method other than GET.
         '500':
@@ -1040,6 +1111,8 @@ paths:
         '401':
           $ref: '#/components/responses/InvalidApiKey'
       description: Get search-term autocomplete suggestions.
+      security:
+      - SigQuery: []
   /search/{accountId}/popularSearches:
     get:
       tags:
@@ -1085,7 +1158,11 @@ paths:
         '403':
           description: The account is blacklisted.
         '404':
-          description: No popular searches are available and the account does not allow empty results.
+          description: No data for this account yet.
+          content:
+            application/json:
+              example:
+                requestId: fd66c3e0-b14d-43d4-981a-8e74741092b0
         '500':
           description: Server error. `missing feeds in config` means text search is not set up for your account
             yet.
@@ -1101,6 +1178,8 @@ paths:
         '401':
           $ref: '#/components/responses/InvalidApiKey'
       description: Get the most popular search terms for the account.
+      security:
+      - SigQuery: []
   /et:
     servers:
     - url: https://syteapi.com
@@ -1620,6 +1699,12 @@ components:
       name: syte-api-key
       description: Your Syte API key, for the recently viewed, collections, gallery and widget endpoints. These
         endpoints do not accept `x-api-key` or `api_key`.
+    SigQuery:
+      type: apiKey
+      in: query
+      name: sig
+      description: Your API key as the `sig` query parameter. Text search, autocomplete and popular searches only
+        accept the key this way.
   parameters:
     AccountId:
       name: account_id
