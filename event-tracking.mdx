@@ -11,7 +11,7 @@ Send events to `POST https://syteapi.com/et`. The event name and your account de
 
 Things to know:
 
-- Use `syteapi.com`. The CDN host `cdn-api.syteapi.com` does not serve `/et`.
+- Events are the one exception to using `cdn-api.syteapi.com`. Send them to `syteapi.com`, because the CDN host does not serve `/et`.
 - `GET` works the same as `POST`. `/eet` is an alias of `/et`.
 - The query string and body are merged. If the same key appears in both, the query string wins.
 - Authenticate with your API key, the same way as other endpoints. See [Authentication](/authentication).

@@ -5,10 +5,8 @@ info:
   description: 'Syte''s product discovery API: visual search, recommendations, text search, collections, widgets
     and event tracking. Every call needs your Syte account ID and API key, which you get from Syte.'
 servers:
-- url: https://syteapi.com
-  description: Production
 - url: https://cdn-api.syteapi.com
-  description: Production, CDN-cached host for browser-side calls
+  description: Production
 tags:
 - name: Visual search
 - name: Recommendations
@@ -1017,7 +1015,7 @@ paths:
   /et:
     servers:
     - url: https://syteapi.com
-      description: Production. Event tracking is not served from the CDN host.
+      description: Production. Event tracking only.
     post:
       tags:
       - Event tracking
@@ -1092,7 +1090,7 @@ paths:
   /eet:
     servers:
     - url: https://syteapi.com
-      description: Production. Event tracking is not served from the CDN host.
+      description: Production. Event tracking only.
     post:
       tags:
       - Event tracking
