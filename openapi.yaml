@@ -21,9 +21,11 @@ paths:
       tags:
       - Visual search
       summary: Detect products in an image
-      description: 'Detects the products in an image and returns one entry per detected item, with its category,
-        position and an `offers` link. Call that link to get matching products from your catalog. Do not send `fields`
-        here: it makes the call fail with `422 malformed url list`. Add `fields` to the offers call instead.'
+      description: 'Step 1 of visual search. Detects the products in an image. The response is keyed by the image
+        URL, with one entry per detected item: its category, its position and its own `offers` link. Call that link
+        to get matching products (step 2). Do not send `fields` here: it makes the call fail with `422 malformed
+        url list`. Add `fields` to the offers call instead. See the [Visual search guide](/visual-search) for the
+        full flow.'
       operationId: getBoundsGET
       parameters:
       - name: imageUrl
@@ -158,6 +160,19 @@ paths:
                   - 0.64
                   - 0.48
                   offers: https://cdn-api.syteapi.com/v1.1/offers?image_url=BASE64_IMAGE_URL&crop=BASE64_CROP&cats=BASE64_CATEGORY&catalog=fashion&gender=female&syte_product=discovery_button&account_id=YOUR_ACCOUNT_ID&sig=YOUR_API_KEY
+                - label: Trousers
+                  gender: female
+                  catalog: fashion
+                  center:
+                  - 0.51
+                  - 0.71
+                  b0:
+                  - 0.38
+                  - 0.49
+                  b1:
+                  - 0.63
+                  - 0.93
+                  offers: https://cdn-api.syteapi.com/v1.1/offers?image_url=BASE64_IMAGE_URL&crop=BASE64_CROP&cats=BASE64_CATEGORY&catalog=fashion&gender=female&syte_product=discovery_button&account_id=YOUR_ACCOUNT_ID&sig=YOUR_API_KEY
         '400':
           description: Missing or invalid required parameter.
           content:
@@ -225,15 +240,18 @@ paths:
                     type: string
         '401':
           $ref: '#/components/responses/InvalidApiKey'
-      description: Detect bounding boxes from an uploaded image or a list of image URLs.
+      description: Step 1 of visual search, for an uploaded image or a list of image URLs. Returns the same detected
+        items and `offers` links as the GET version. See the [Visual search guide](/visual-search) for the full
+        flow.
   /offers:
     get:
       tags:
       - Visual search
       summary: Find products matching an image
-      description: Returns catalog products that match one detected item. Usually you call the `offers` link returned
-        by Detect products, adding `fields` for the product data you need and `size` for how many results. Also
-        reachable at /v1.1/offers.
+      description: 'Step 2 of visual search. Returns catalog products that match one detected item, in `ads`. You
+        normally do not build this call yourself: call the `offers` link that Detect products returned for that
+        item, and add `fields` for the product data you need and `size` for how many results. Also reachable at
+        /v1.1/offers. See the [Visual search guide](/visual-search) for the full flow.'
       operationId: getOffers
       parameters:
       - name: image_url
