@@ -3,11 +3,15 @@
   "theme": "mint",
   "name": "Syte API",
   "colors": {
-    "primary": "#111827",
-    "light": "#E5E7EB",
-    "dark": "#111827"
+    "primary": "#262626",
+    "light": "#FFCD00",
+    "dark": "#262626"
   },
   "favicon": "/favicon.svg",
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg"
+  },
   "navigation": {
     "tabs": [
       {
