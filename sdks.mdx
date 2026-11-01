@@ -1,46 +1,62 @@
 ---
 title: "Mobile SDKs"
-description: "Native iOS and Android SDKs for visual search, recommendations, text search and event tracking."
+description: "Native iOS and Android SDKs for visual search, recommendations, text search and event tracking, with optional ready-made screens."
 ---
 
-The SDKs wrap the same API as the rest of these docs, so you don't have to build the calls yourself. Both cover:
+The SDKs wrap the same API as the rest of these docs, so you don't have to build the calls yourself. Each platform has two libraries:
 
-- Visual search from an image or an image URL, including results for each detected product and manual cropping
-- Similar items, Shop the Look and personalized recommendations
+- **The SDK** returns data for screens you build yourself.
+- **The UI kit** adds ready-made screens on top of the SDK: product carousels, photo search and text search. See [Ready-made screens](#ready-made-screens).
+
+The SDKs cover:
+
+- Visual search from a photo or an image URL, including results for each detected product and manual cropping
+- Similar items, Shop the Look, personalized recommendations and frequently bought together
+- Recently viewed products, merchandising collections and shoppable galleries
 - Text search, autocomplete and popular searches
-- Sending events
+- Sending events, including add to cart, checkout and purchase
 - Tracking viewed products and recent searches on the device
 
 You need your account ID and your API key. The SDKs call the key `signature`.
 
 <Tabs>
   <Tab title="iOS">
-    **Repository:** [github.com/syte-ai/iOS-SDK](https://github.com/syte-ai/iOS-SDK)
+    **Repository:** [github.com/elnini0/syte-ios-sdk](https://github.com/elnini0/syte-ios-sdk)
+
+    Requires iOS 15 or later and Xcode 15 or later.
 
     ### Install
 
-    With Swift Package Manager, add this package URL in Xcode:
+    With Swift Package Manager, add this package URL in Xcode and pick **Up to Next Major Version** from `3.0.0`:
 
     ```text
-    https://github.com/syte-ai/iOS-SDK.git
+    https://github.com/elnini0/syte-ios-sdk.git
+    ```
+
+    Then add the `iOS-SDK` library to your target. In a `Package.swift`:
+
+    ```swift
+    .package(url: "https://github.com/elnini0/syte-ios-sdk.git", from: "3.0.0")
     ```
 
     Or with CocoaPods, add this to your Podfile:
 
     ```ruby
-    pod 'Syte', :git => 'https://github.com/syte-ai/iOS-SDK.git'
+    pod 'Syte', :git => 'https://github.com/elnini0/syte-ios-sdk.git', :tag => '3.0.0'
     ```
 
     ### Initialize
 
     ```swift
+    import iOS_SDK
+
     let configuration = SyteConfiguration(accountId: "YOUR_ACCOUNT_ID", signature: "YOUR_API_KEY")
     configuration.locale = "en_US"
 
     let syte = Syte(configuration: configuration)
     ```
 
-    `Syte(configuration:)` returns an optional.
+    `Syte(configuration:)` returns an optional. The SDK keeps a stable shopper ID and session ID on the device and sends them with every call and event.
 
     ### Visual search
 
@@ -54,7 +70,7 @@ You need your account ID and your API key. The SDKs call the key `signature`.
     }
     ```
 
-    For another detected product, call `getItemsForBound(bound:cropCoordinates:completion:)`. For a photo the shopper takes, use `ImageSearch(image:)` with `getBoundsForImage(imageSearch:completion:)`.
+    For another detected product, call `getItemsForBound(bound:cropCoordinates:completion:)`. For a photo the shopper takes, use `ImageSearch(image:)` with `getBoundsForImage(imageSearch:completion:)`. The SDK shrinks the photo to at most 1400 pixels on its longest side and uploads it in the same call.
 
     ### Other features
 
@@ -63,26 +79,43 @@ You need your account ID and your API key. The SDKs call the key `signature`.
     | Similar items | `getSimilarProducts(similarProducts:completion:)` |
     | Shop the Look | `getShopTheLook(shopTheLook:completion:)` |
     | Personalized recommendations | `getPersonalization(personalization:completion:)` |
+    | Frequently bought together | `getBoughtTogether(boughtTogether:completion:)` |
+    | Recently viewed | `getRecentlyViewed(request:completion:)`, `removeRecentlyViewed(sku:completion:)`, `mergeRecentlyViewed(fromUserId:completion:)` |
+    | Merchandising collection | `getCollection(collection:completion:)` |
+    | Shoppable gallery | `getShoppableGallery(gallery:completion:)` |
     | Text search | `getTextSearch(textSearch:completion:)` |
     | Autocomplete | `getAutoCompleteForTextSearch(query:lang:completion:)` |
     | Popular searches | `getPopularSearches(lang:completion:)` |
     | Send an event | `fire(event:)` |
     | Record a viewed product | `try addViewedProduct(sku:)` |
 
-    Personalized recommendations need at least one viewed product, so call `addViewedProduct(sku:)` first.
+    Personalized recommendations need at least one viewed product. Sending an `EventPageView` records the product for you, or call `addViewedProduct(sku:)`.
+
+    ### Ecommerce events
+
+    Send add to cart, checkout started and purchase with `EventProductsAddedToCart`, `EventCheckoutStart` and `EventCheckoutComplete`. The SDK builds the `rawData` body that [event tracking](/event-tracking) describes.
+
+    ```swift
+    let purchase = EventCheckoutComplete(id: "ORDER-1001", value: 23.79, currency: "EUR",
+                                         productList: [Product(sku: "ABC123", quantity: 1, price: 19.99)],
+                                         pageName: "thank-you")
+    syte?.fire(event: purchase)
+    ```
   </Tab>
   <Tab title="Android">
-    **Repository:** [github.com/syte-ai/Android-SDK](https://github.com/syte-ai/Android-SDK)
+    **Repository:** [github.com/elnini0/syte-android-sdk](https://github.com/elnini0/syte-android-sdk)
 
-    Requires Android API 21 or higher.
+    Requires Android 5.0 (API 21) or higher.
 
     ### Install
 
-    Add JitPack to your repositories:
+    Add JitPack to your repositories in `settings.gradle`:
 
     ```groovy
-    allprojects {
+    dependencyResolutionManagement {
         repositories {
+            google()
+            mavenCentral()
             maven { url 'https://jitpack.io' }
         }
     }
@@ -92,15 +125,11 @@ You need your account ID and your API key. The SDKs call the key `signature`.
 
     ```groovy
     dependencies {
-        implementation 'com.github.syte-ai:Android-SDK:1.0.0'
+        implementation 'com.github.elnini0.syte-android-sdk:android-sdk:2.0.0'
     }
     ```
 
-    If `minifyEnabled` is on, add this to `proguard-rules.pro`:
-
-    ```text
-    -keep class com.syte.ai.android_sdk.data.** { *; }
-    ```
+    Shrinking with R8 needs no extra rules. The library ships its own.
 
     ### Initialize
 
@@ -110,6 +139,8 @@ You need your account ID and your API key. The SDKs call the key `signature`.
 
     Syte syte = Syte.newInstance(configuration);
     ```
+
+    The SDK keeps a stable shopper ID and session ID on the device and sends them with every call and event.
 
     ### Visual search
 
@@ -125,7 +156,7 @@ You need your account ID and your API key. The SDKs call the key `signature`.
     });
     ```
 
-    For another detected product, call `getItemsForBoundAsync(bound, cropCoordinates, callback)`. For a photo the shopper takes, use `ImageSearch` with `getBoundsForImageAsync(context, imageSearch, callback)`.
+    For another detected product, call `getItemsForBoundAsync(bound, cropCoordinates, callback)`. For a photo the shopper takes, use `ImageSearch` with `getBoundsForImageAsync(context, imageSearch, callback)`. The SDK shrinks the photo to at most 1400 pixels on its longest side and uploads it in the same call.
 
     Most calls have a blocking version and an `Async` version with a callback, which always runs on the UI thread. Don't call the blocking versions on the main thread.
 
@@ -133,17 +164,133 @@ You need your account ID and your API key. The SDKs call the key `signature`.
 
     | Feature | Method |
     | --- | --- |
-    | Similar items | `getSimilarProductsAsync(...)` |
-    | Shop the Look | `getShopTheLookAsync(...)` |
-    | Personalized recommendations | `getPersonalizedProductsAsync(...)` |
+    | Similar items | `getSimilarProductsAsync(similarItems, callback)` |
+    | Shop the Look | `getShopTheLookAsync(shopTheLook, callback)` |
+    | Personalized recommendations | `getPersonalizedProductsAsync(personalization, callback)` |
+    | Frequently bought together | `getBoughtTogetherAsync(boughtTogether, callback)` |
+    | Recently viewed | `getRecentlyViewedAsync(request, callback)`, `removeRecentlyViewedAsync(sku, callback)`, `mergeRecentlyViewedAsync(fromUserId, callback)` |
+    | Merchandising collection | `getCollectionAsync(collection, callback)` |
+    | Shoppable gallery | `getShoppableGalleryAsync(gallery, callback)` |
     | Text search | `getTextSearchAsync(textSearch, callback)` |
     | Autocomplete | `getAutoCompleteForTextSearch(query, callback)` |
     | Popular searches | `getPopularSearchesAsync(lang, callback)` |
     | Send an event | `fireEvent(event)` |
     | Record a viewed product | `addViewedProduct(sku)` |
 
-    Personalized recommendations need at least one viewed product, so call `addViewedProduct(sku)` first.
+    Personalized recommendations need at least one viewed product. Sending an `EventPageView` records the product for you, or call `addViewedProduct(sku)`.
+
+    ### Ecommerce events
+
+    Send add to cart, checkout started and purchase with `EventProductsAddedToCart`, `EventCheckoutStart` and `EventCheckoutComplete`. The SDK builds the `rawData` body that [event tracking](/event-tracking) describes.
+
+    ```java
+    List<Product> products = Collections.singletonList(new Product("ABC123", 1, 19.99));
+    syte.fireEvent(new EventCheckoutComplete("ORDER-1001", 23.79, "EUR", products, "thank-you"));
+    ```
   </Tab>
 </Tabs>
 
-The repository READMEs have the full list of classes and options.
+<Note>
+  Recently viewed, merchandising collections and shoppable galleries only work on accounts they're set up for. Other accounts get a `403`.
+</Note>
+
+## Ready-made screens
+
+The UI kits are optional libraries that call Syte, show the results and send the visual search, recommendation and search events for you. Each has three views:
+
+- **Product carousel**: a titled row of similar items, Shop the Look, personalized picks, frequently bought together, recently viewed or a collection. It shows placeholder cards while loading and hides itself when there's nothing to show.
+- **Photo search**: the shopper takes or chooses a photo, taps one of the products Syte finds in it, and browses matches. Given an image URL, it searches that image right away, for a "find similar" button on a product page.
+- **Search**: a search box with recent and popular searches, suggestions while typing, and results that load more as the shopper scrolls.
+
+You can replace the product card with your own, and change colors, fonts, sizes and every piece of text.
+
+<Tabs>
+  <Tab title="iOS (SwiftUI)">
+    Add the `SyteUI` library from the same package as the SDK. Requires iOS 15 or later. It's available through Swift Package Manager only.
+
+    Create the service once and hand it to the views:
+
+    ```swift
+    import SwiftUI
+    import SyteUI
+    import iOS_SDK
+
+    @main
+    struct ShopApp: App {
+        let syte = SyteLiveService(syte: Syte(configuration: SyteConfiguration(accountId: "YOUR_ACCOUNT_ID",
+                                                                               signature: "YOUR_API_KEY"))!)
+
+        var body: some Scene {
+            WindowGroup {
+                ContentView().syteService(syte)
+            }
+        }
+    }
+    ```
+
+    Then use the views anywhere below it. Each takes a closure for when the shopper picks a product:
+
+    ```swift
+    SyteProductCarousel(.similar(sku: "ABC123", imageURL: "https://shop.example.com/images/abc123.jpg"),
+                        title: "You may also like") { picked in
+        openProduct(picked.sku)
+    }
+
+    SyteVisualSearchView { picked in openProduct(picked.sku) }
+
+    SyteSearchView { picked in openProduct(picked.sku) }
+    ```
+
+    Taking photos needs `NSCameraUsageDescription` in your `Info.plist`.
+  </Tab>
+  <Tab title="Android (Compose)">
+    Add the `syte-ui` library instead of the SDK. It includes the SDK. Requires Android 6.0 (API 23) or higher, and your app must compile against API 37, which current Jetpack Compose libraries require.
+
+    ```groovy
+    dependencies {
+        implementation 'com.github.elnini0.syte-android-sdk:syte-ui:2.0.0'
+    }
+    ```
+
+    Create the service once and wrap your content in `SyteUi`:
+
+    ```kotlin
+    val syte = Syte.newInstance(SyteConfiguration(context, "YOUR_ACCOUNT_ID", "YOUR_API_KEY"))
+    val service = SyteLiveService(context, syte)
+
+    setContent {
+        MaterialTheme {
+            SyteUi(service) { ShopScreen() }
+        }
+    }
+    ```
+
+    Then use the views anywhere inside it. Each takes a lambda for when the shopper picks a product:
+
+    ```kotlin
+    SyteProductCarousel(
+        SyteRecommendation.Similar("ABC123", "https://shop.example.com/images/abc123.jpg"),
+        title = "You may also like",
+    ) { picked -> openProduct(picked.sku) }
+
+    SyteVisualSearch { picked -> openProduct(picked.sku) }
+
+    SyteSearch { picked -> openProduct(picked.sku) }
+    ```
+
+    Colors and type follow your `MaterialTheme`, so dark mode works without extra setup.
+  </Tab>
+</Tabs>
+
+### Events the screens send
+
+| Screen | Events |
+| --- | --- |
+| Similar items carousel | `fe_si_show_layout` when shown, `fe_offer_click` for each click |
+| Shop the Look carousel | `fe_stl_show_layout` when shown, `fe_offer_click` for each click |
+| Photo search | `fe_camera_button_impression`, `fe_camera_button_click`, `fe_bb_show_layout`, `fe_bb_bb_click`, `fe_bb_show_results` and `fe_offer_click` |
+| Search | `fe_text_show_results` when results are shown |
+
+Personalized, frequently bought together, recently viewed and collection carousels send no events, and neither do clicks on search results. Page views, add to cart and purchases stay your app's job: send them with the SDK as shown under **Ecommerce events** above.
+
+Both repositories include a demo app built from the UI kit. The repository READMEs have the full list of classes and options.
