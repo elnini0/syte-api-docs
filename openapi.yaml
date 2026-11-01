@@ -1,0 +1,2017 @@
+openapi: 3.0.3
+info:
+  title: Syte API
+  version: 2.0.0
+  description: 'Syte''s product discovery API: visual search, recommendations, text search, collections, widgets
+    and event tracking. Every call needs your Syte account ID and API key, which you get from Syte.'
+servers:
+- url: https://syteapi.com
+  description: Production
+- url: https://cdn-api.syteapi.com
+  description: Production, CDN-cached host for browser-side calls
+tags:
+- name: Visual search
+- name: Recommendations
+- name: Recently viewed
+- name: Text search
+- name: Collections and galleries
+- name: Widgets
+- name: Event tracking
+paths:
+  /v1.1/offers/bb:
+    get:
+      tags:
+      - Visual search
+      summary: Detect products in an image
+      description: Detect bounding boxes in an image and return matched offers for each box. Also reachable at /offers/bb
+        and /v1.0/offers/bb.
+      operationId: getBoundsGET
+      parameters:
+      - name: imageUrl
+        in: query
+        required: true
+        schema:
+          type: string
+          format: uri
+        example: https://cdn.example.com/photos/street-style-01.jpg
+        description: URL of the image to analyze, or an inline base64 data URL.
+      - name: sku
+        in: query
+        required: false
+        schema:
+          type: string
+        example: ABC123
+        description: Forces matching against a known product SKU.
+      - name: gender
+        in: query
+        required: false
+        schema:
+          type: string
+        example: female
+        description: Restricts or biases detection and matching to the given gender.
+      - $ref: '#/components/parameters/MatchFilter'
+      - $ref: '#/components/parameters/Catalog'
+      - $ref: '#/components/parameters/Feed'
+      - $ref: '#/components/parameters/SessionId'
+      - $ref: '#/components/parameters/SessionSkus'
+      - $ref: '#/components/parameters/Locale'
+      - $ref: '#/components/parameters/Fields'
+      - $ref: '#/components/parameters/AccountId'
+      - name: syte_uuid
+        in: query
+        required: false
+        schema:
+          type: string
+        example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+        description: User/session identifier, forwarded into the similar-items link included in the response.
+      - name: galleryName
+        in: query
+        required: false
+        schema:
+          type: string
+        example: summer-lookbook
+        description: Name of the inspirational-image gallery to pull from; required in inspirational-images mode.
+      - name: syte_product
+        in: query
+        required: false
+        schema:
+          type: string
+        example: camera
+        description: Selects the calling surface/mode (camera, discovery_button, inspirational_images, ...).
+      - $ref: '#/components/parameters/SyteAppRef'
+      - $ref: '#/components/parameters/SyteContext'
+      - $ref: '#/components/parameters/VariantId'
+      - name: sig
+        in: query
+        required: false
+        schema:
+          type: string
+        example: a1b2c3d4e5f6
+        description: Authenticates the request and is also forwarded into the generated offer link.
+      responses:
+        '200':
+          description: Detected bounding boxes for the image, each with a link to matched offers.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  experimentId:
+                    type: string
+                  variantId:
+                    type: string
+                  latencies:
+                    type: object
+                  meta:
+                    type: object
+                    properties:
+                      shopVersionId:
+                        type: string
+                      updatedAt:
+                        type: string
+                additionalProperties:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      b0:
+                        type: array
+                        items:
+                          type: number
+                      b1:
+                        type: array
+                        items:
+                          type: number
+                      center:
+                        type: array
+                        items:
+                          type: number
+                      label:
+                        type: string
+                      catalog:
+                        type: string
+                      gender:
+                        type: string
+                      ref_id:
+                        type: string
+                      offers:
+                        type: string
+                        description: Link to the matching products for this detected item.
+                      logo:
+                        type: string
+                      deeptags:
+                        type: object
+                      fallback:
+                        type: boolean
+                        description: Present only when truthy.
+                      matchDetails:
+                        type: object
+                        description: Present only when `syte_product=inspirational_images`.
+        '400':
+          description: Missing or invalid required parameter.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        '403':
+          description: The image URL is not on the account's whitelisted domains.
+        '422':
+          description: Malformed input, or an unknown gallery name.
+        '500':
+          description: A server error occurred while resolving an inspirational-images gallery match.
+    post:
+      tags:
+      - Visual search
+      summary: Detect products in an uploaded image
+      operationId: getBoundsPOST
+      parameters:
+      - name: payload_type
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - image_urls
+          - image_bin
+          default: image_urls
+        example: image_urls
+        description: Selects how the request body is interpreted.
+      - $ref: '#/components/parameters/VariantId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: string
+                format: uri
+              description: List of image URLs to analyze, used when payload_type is image_urls (default).
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+              description: Raw image bytes, used when payload_type is image_bin.
+      responses:
+        '200':
+          description: Same response shape as the GET variant.
+        '400':
+          description: Missing or invalid required parameter.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+      description: Detect bounding boxes from an uploaded image or a list of image URLs.
+  /offers:
+    get:
+      tags:
+      - Visual search
+      summary: Find products matching an image
+      description: Find product offers that visually match a queried image. Also reachable at /v1.1/offers.
+      operationId: getOffers
+      parameters:
+      - name: image_url
+        in: query
+        required: true
+        schema:
+          type: string
+          format: byte
+        example: aHR0cHM6Ly9jZG4uZXhhbXBsZS5jb20vcGhvdG9zL2RyZXNzLmpwZw==
+        description: Base64-encoded image URL to match against.
+      - name: crop
+        in: query
+        required: false
+        schema:
+          type: string
+          format: byte
+        example: eyJ4MCI6MCwieTAiOjAsIngxIjoxLCJ5MSI6MX0=
+        description: Base64-encoded JSON crop box; defaults to the full image.
+      - name: sku
+        in: query
+        required: false
+        schema:
+          type: string
+        example: ABC123
+        description: Restricts matching to a specific known product SKU.
+      - name: syte_product
+        in: query
+        required: false
+        schema:
+          type: string
+        example: camera
+        description: Selects the calling surface/mode; defaults to camera, or discovery_button when sku is supplied.
+      - name: sorting
+        in: query
+        required: false
+        schema:
+          type: string
+        example: price_asc
+        description: Sort order for the returned offers; invalid values are ignored.
+      - $ref: '#/components/parameters/VariantFields'
+      - $ref: '#/components/parameters/AdditionalSizeVariantFields'
+      - name: filters
+        in: query
+        required: false
+        schema:
+          type: string
+        example: '{"price":{"min":10,"max":100}}'
+        description: JSON filter expression applied to narrow the matched offers.
+      - $ref: '#/components/parameters/MatchFilter'
+      - $ref: '#/components/parameters/Catalog'
+      - $ref: '#/components/parameters/Feed'
+      - name: gender
+        in: query
+        required: false
+        schema:
+          type: string
+        example: female
+        description: Restricts or biases matched offers to the given gender.
+      - name: session_skus
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+        style: form
+        explode: false
+        example:
+        - SKU123
+        - SKU456
+        description: Accepted, but has no effect on this endpoint's matching or analytics.
+      - $ref: '#/components/parameters/Locale'
+      - name: session_id
+        in: query
+        required: false
+        schema:
+          type: string
+        example: sess_9f2c8a
+        description: Forwarded into analytics only; not included in the JSON response.
+      - $ref: '#/components/parameters/SyteAppRef'
+      - $ref: '#/components/parameters/SyteContext'
+      - $ref: '#/components/parameters/Fields'
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+        example: 24
+        description: Maximum number of offers to return.
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: integer
+        example: 0
+        description: Pagination offset into the matched offers.
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+        example: 24
+        description: Number of offers to return per page.
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/VariantId'
+      - $ref: '#/components/parameters/UserUuid'
+      - name: request_id
+        in: query
+        required: false
+        schema:
+          type: string
+        example: req_7d3f1a
+        description: Client-supplied request correlation id for logging/tracing.
+      - name: sig
+        in: query
+        required: false
+        schema:
+          type: string
+        example: a1b2c3d4e5f6
+        description: Authenticates the request.
+      responses:
+        '200':
+          description: Matched offers for the queried image.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ads:
+                    type: array
+                    items:
+                      type: object
+                  currency_tla:
+                    type: string
+                  currency_symbol:
+                    type: string
+                  backend_filters_enabled:
+                    type: boolean
+                    description: Always present.
+                  aggregations:
+                    type: object
+                    description: Present only when `add_aggregations` is set and at least one facet was computed.
+                  original_item:
+                    type: array
+                    items:
+                      type: object
+                    description: Single-element array wrapping the queried item.
+                  experimentId:
+                    type: string
+                  variantId:
+                    type: string
+                  meta:
+                    type: object
+                    properties:
+                      shopVersionId:
+                        type: string
+                      updatedAt:
+                        type: string
+        '400':
+          description: Missing or invalid required parameter.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        '404':
+          description: No matching offers were found for the queried image; this is a normal outcome, not an error.
+  /v1.1/similars:
+    get:
+      tags:
+      - Recommendations
+      summary: Similar items and Shop the Look
+      operationId: getSimilars
+      parameters:
+      - name: q
+        in: query
+        required: true
+        schema:
+          type: string
+        example: sku:ABC123
+        description: The item to find similars for, in the form <key>:<value>, e.g. sku:ABC123.
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/Catalog'
+      - $ref: '#/components/parameters/Feed'
+      - name: gender
+        in: query
+        required: false
+        schema:
+          type: string
+        example: female
+        description: Restricts or biases similar-item results to the given gender.
+      - $ref: '#/components/parameters/SessionId'
+      - $ref: '#/components/parameters/SyteAppRef'
+      - $ref: '#/components/parameters/SessionSkus'
+      - $ref: '#/components/parameters/Locale'
+      - $ref: '#/components/parameters/Fields'
+      - $ref: '#/components/parameters/SyteContext'
+      - name: syte_product
+        in: query
+        required: false
+        schema:
+          type: string
+        example: similars
+        description: Identifies the calling surface/mode for this request.
+      - name: imageUrl
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uri
+        example: https://cdn.example.com/photos/dress.jpg
+        description: Finds similars to the item detected in this image instead of the item identified by q.
+      - $ref: '#/components/parameters/VariantFields'
+      - $ref: '#/components/parameters/AdditionalSizeVariantFields'
+      - name: features
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+            enum:
+            - similars
+            - ctl
+          default:
+          - similars
+        example:
+        - similars
+        description: Selects the ranking strategy/strategies used, e.g. features=similars,ctl.
+      - $ref: '#/components/parameters/MatchFilter'
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+        example: 24
+        description: Maximum total number of similar items to return.
+      - $ref: '#/components/parameters/VariantId'
+      - $ref: '#/components/parameters/UserUuid'
+      responses:
+        '200':
+          description: Similar items, or grouped shop-the-look results.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    type: array
+                    items:
+                      type: object
+                  original_item:
+                    type: array
+                    items:
+                      type: object
+                    description: Single-element array wrapping the queried item.
+                  fallback:
+                    type: string
+                    description: Either `"null"` or `"imageUrl"`. Present when `imageUrl` was supplied.
+                  experimentId:
+                    type: string
+                  variantId:
+                    type: string
+                  meta:
+                    type: object
+                    properties:
+                      shopVersionId:
+                        type: string
+                      updatedAt:
+                        type: string
+        '400':
+          description: Missing or invalid required parameter, such as q.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+      description: Find visually or semantically similar items to a product or image (also used for Shop the Look).
+  /v1.1/personalization:
+    get:
+      tags:
+      - Recommendations
+      summary: Personalized recommendations
+      operationId: getPersonalization
+      parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/VariantId'
+      - $ref: '#/components/parameters/UserUuid'
+      - name: syte_product
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - personalization
+          - bought_together
+          default: personalization
+        example: personalization
+        description: Selects between personalized recommendations and frequently-bought-together items.
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 20
+        example: 20
+        description: Maximum number of items to return; defaults to 20.
+      - $ref: '#/components/parameters/VariantFields'
+      - $ref: '#/components/parameters/AdditionalSizeVariantFields'
+      - $ref: '#/components/parameters/Feed'
+      - $ref: '#/components/parameters/Catalog'
+      - $ref: '#/components/parameters/SessionId'
+      - $ref: '#/components/parameters/SyteAppRef'
+      - $ref: '#/components/parameters/Locale'
+      - $ref: '#/components/parameters/Fields'
+      - $ref: '#/components/parameters/SyteContext'
+      - name: session_skus
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+        style: form
+        explode: false
+        example:
+        - SKU123
+        - SKU456
+        description: SKUs already seen or interacted with, used as personalization/bought-together input.
+      - name: model_version
+        in: query
+        required: false
+        schema:
+          type: string
+          default: A
+        example: A
+        description: Selects the recommendation model version.
+      responses:
+        '200':
+          description: Recommended items; the exact shape depends on the response format and whether a fallback
+            was used.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonalizationResponse'
+        '404':
+          description: No items were found for this request.
+        '500':
+          description: An unrecognized value was supplied for syte_product or sorting_order.
+      description: Get personalized recommendations, or frequently-bought-together items.
+    post:
+      tags:
+      - Recommendations
+      summary: Personalized recommendations (JSON body)
+      operationId: postPersonalization
+      parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/VariantId'
+      - $ref: '#/components/parameters/Feed'
+      - $ref: '#/components/parameters/Catalog'
+      - $ref: '#/components/parameters/SessionId'
+      - $ref: '#/components/parameters/SyteAppRef'
+      - $ref: '#/components/parameters/Locale'
+      - $ref: '#/components/parameters/Fields'
+      - $ref: '#/components/parameters/SyteContext'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Only these four keys are accepted; any other body key is rejected.
+              required:
+              - user_uuid
+              - session_skus
+              properties:
+                user_uuid:
+                  type: string
+                  format: uuid
+                  description: Identifies the user to personalize recommendations for.
+                session_skus:
+                  type: array
+                  items:
+                    type: string
+                  description: SKUs already seen or interacted with, used as input signal.
+                ad_url:
+                  type: string
+                  format: uri
+                  description: Resolves a SKU from this URL and adds it to session_skus.
+                model_version:
+                  type: string
+                  enum:
+                  - A
+                  - B
+                  default: A
+                  description: Selects the recommendation model version.
+      responses:
+        '200':
+          description: Same response shape as GET /v1.1/personalization.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonalizationResponse'
+        '400':
+          description: An unknown body field was supplied, or a required field is missing.
+        '404':
+          description: No items were found for this request.
+      description: Same as GET, but with a JSON request body instead of query parameters for the core inputs.
+  /search/{accountId}/items:
+    get:
+      tags:
+      - Text search
+      summary: Search products
+      operationId: searchItems
+      parameters:
+      - name: accountId
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^[0-9]+$
+        example: '12345'
+        description: Identifies the account to search within; must be numeric.
+      - name: filters
+        in: query
+        required: false
+        schema:
+          type: string
+        example: '{"category":"dresses"}'
+        description: JSON filter object narrowing the search results.
+      - name: sorting
+        in: query
+        required: false
+        schema:
+          type: string
+        example: price_asc
+        description: Sort order for the returned search results.
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 0
+        example: 0
+        description: Pagination offset into the result set.
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 30
+        example: 24
+        description: Number of results to return per page.
+      - $ref: '#/components/parameters/Locale'
+      - name: lang
+        in: query
+        required: false
+        schema:
+          type: string
+        example: en
+        description: Language used for search-text tokenization, independent of locale.
+      - name: showAllExactResults
+        in: query
+        required: false
+        schema:
+          type: boolean
+        example: false
+        description: When true, returns all exact-match results instead of a capped/paginated set.
+      - name: force_currency
+        in: query
+        required: false
+        schema:
+          type: string
+        example: USD
+        description: Overrides the account's default currency for displayed prices.
+      - $ref: '#/components/parameters/VariantFields'
+      - $ref: '#/components/parameters/AdditionalSizeVariantFields'
+      - name: customer_feed
+        in: query
+        required: false
+        schema:
+          type: string
+        example: default
+        description: Overrides the configured feed list used for this search.
+      - name: text_search_variants
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - 'true'
+          - 'false'
+        example: 'true'
+        description: When "true", merges size/color product variants into results and groups by parent SKU.
+      - $ref: '#/components/parameters/SyteContext'
+      - name: fields
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+        style: form
+        explode: false
+        example:
+        - sku
+        - price
+        - imageUrl
+        description: Sparse-fieldset selector; currently has no effect on this endpoint's response shape.
+      - name: mode
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - RawQuery
+          - NoSynonyms
+        example: NoSynonyms
+        description: Selects the synonym-expansion mode for the search query.
+      - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: Search results, with pagination and facet information.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    nullable: true
+                    description: Always `null` on a 200 response.
+                  result:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      hits:
+                        type: array
+                        items:
+                          type: object
+                      exactCount:
+                        type: integer
+                      recognizedTagging:
+                        type: object
+                        description: Always an empty object - not currently populated.
+                      aggregations:
+                        type: object
+                      suggestedPages:
+                        type: array
+                        items:
+                          type: object
+                        description: Present only when the account's `redirect_on_items` flag is set and no autocomplete-style
+                          suggest data applies; when suggest data applies, `result` is replaced entirely by that
+                          shape instead.
+                  requestId:
+                    type: string
+                  searchType:
+                    type: string
+                  originalSearchTerm:
+                    type: string
+                    description: The `query` value after trimming/whitespace-collapsing.
+                  message:
+                    type: string
+                    description: Present only when the search fell back to a corrected search term; paired with
+                      `correctedSearchTerm`.
+                  correctedSearchTerm:
+                    type: string
+                  experimentId:
+                    type: string
+                  variantId:
+                    type: string
+                  meta:
+                    type: object
+                    properties:
+                      shopVersionId:
+                        type: string
+                      updatedAt:
+                        type: string
+        '400':
+          description: Non-numeric accountId, or a query longer than 150 characters.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        '403':
+          description: The account is blacklisted.
+        '405':
+          description: Returned for any method other than GET.
+        '500':
+          description: The search backend returned an explicit error.
+      description: Full-text search over the account's product catalog.
+  /search/{accountId}/autocomplete:
+    get:
+      tags:
+      - Text search
+      summary: Autocomplete
+      operationId: autocomplete
+      parameters:
+      - name: accountId
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^[0-9]+$
+        example: '12345'
+        description: Identifies the account to search within; must be numeric.
+      - name: query
+        in: query
+        required: false
+        schema:
+          type: string
+          default: ''
+          maxLength: 150
+        example: red dr
+        description: Partial search text for autocomplete suggestions; defaults to empty.
+      - name: lang
+        in: query
+        required: false
+        schema:
+          type: string
+        example: en
+        description: Language used for suggestion tokenization/matching.
+      - $ref: '#/components/parameters/Locale'
+      - name: fields
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+        style: form
+        explode: false
+        example:
+        - sku
+        - imageUrl
+        description: Comma-separated response fields to include on suggested-item results.
+      - name: autocomplete_variants
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - 'true'
+          - 'false'
+        example: 'true'
+        description: When "true", merges size/color product variants into suggested results.
+      - name: showAllExactResults
+        in: query
+        required: false
+        schema:
+          type: boolean
+        example: false
+        description: Raises the result cap for autocomplete requests.
+      - name: mode
+        in: query
+        required: false
+        schema:
+          type: string
+        example: no_synonyms
+        description: Selects the synonym-expansion mode for autocomplete queries.
+      - name: customer_feed
+        in: query
+        required: false
+        schema:
+          type: string
+        example: default
+        description: Overrides the configured feed list, same as on the items search endpoint.
+      - name: force_currency
+        in: query
+        required: false
+        schema:
+          type: string
+        example: USD
+        description: Overrides the account's default currency for suggested-item prices.
+      - $ref: '#/components/parameters/VariantFields'
+      - $ref: '#/components/parameters/AdditionalSizeVariantFields'
+      - $ref: '#/components/parameters/SessionId'
+      - name: syte_context
+        in: query
+        required: false
+        schema:
+          type: string
+        example: widget
+        description: Identifies the calling surface; also affects suggested redirect pages in the response.
+      responses:
+        '200':
+          description: Autocomplete suggestions.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    nullable: true
+                    description: Always `null` on a 200 response.
+                  requestId:
+                    type: string
+                  experimentId:
+                    type: string
+                  variantId:
+                    type: string
+                  meta:
+                    type: object
+                    properties:
+                      shopVersionId:
+                        type: string
+                      updatedAt:
+                        type: string
+                  results:
+                    type: object
+                    properties:
+                      allResults:
+                        type: string
+                        description: Always the empty string, not an array - hardcoded, never populated.
+                      suggestedItems:
+                        type: array
+                        items: {}
+                      suggestedCategories:
+                        type: array
+                        items: {}
+                        description: Always an empty array - hardcoded, never populated.
+                      suggestedPages:
+                        type: array
+                        items: {}
+                      suggestedSearchTerms:
+                        type: array
+                        items: {}
+        '204':
+          description: No results were found and the account allows empty results.
+        '404':
+          description: No results were found and the account does not allow empty results.
+        '405':
+          description: Returned for any method other than GET.
+        '500':
+          description: An explicit error was returned from the autocomplete backend.
+        '400':
+          description: Non-numeric accountId, or a query longer than 150 characters.
+        '403':
+          description: The account is blacklisted.
+      description: Get search-term autocomplete suggestions.
+  /search/{accountId}/popularSearches:
+    get:
+      tags:
+      - Text search
+      summary: Popular searches
+      operationId: popularSearches
+      parameters:
+      - name: accountId
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^[0-9]+$
+        example: '12345'
+        description: Identifies the account to look up popular searches for; must be numeric.
+      - name: lang
+        in: query
+        required: false
+        schema:
+          type: string
+        example: en
+        description: Language filter, used only when locale is absent.
+      - $ref: '#/components/parameters/Locale'
+      - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: List of popular search terms; may be an empty array.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+        '400':
+          description: Non-numeric accountId, or a query-length violation.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        '403':
+          description: The account is blacklisted.
+        '404':
+          description: No popular searches are available and the account does not allow empty results.
+        '500':
+          description: An explicit error was returned from the popular-searches backend.
+        '405':
+          description: Returned for any method other than GET.
+      description: Get the most popular search terms for the account.
+  /et:
+    servers:
+    - url: https://syteapi.com
+      description: Production. Event tracking is not served from the CDN host.
+    post:
+      tags:
+      - Event tracking
+      summary: Track an event
+      description: Track an interaction event (schema-less tracking beacon). Also reachable at /eet. Query string
+        and JSON body are merged into a single event payload.
+      operationId: trackEvent
+      parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/UserUuid'
+      - $ref: '#/components/parameters/SessionSkus'
+      - name: coords
+        in: query
+        required: false
+        schema:
+          type: string
+          format: byte
+        example: eyJ4MCI6MC4xLCJ5MCI6MC4yLCJ4MSI6MC41LCJ5MSI6MC42fQ==
+        description: Base64+JSON-encoded bounding-box coordinates of the interacted-with region.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              description: Arbitrary key/value pairs merged into the tracked event.
+      responses:
+        '204':
+          description: Event accepted. Always 204 No Content.
+        '400':
+          description: The request body is not valid JSON, or account_id/API key is missing or invalid.
+        '401':
+          description: The supplied API key does not match the account's configured key.
+        '403':
+          description: The account is blacklisted, unconfigured, or not permitted from this location.
+    get:
+      tags:
+      - Event tracking
+      summary: Track an event (GET)
+      description: Same as the POST version, sent as a GET. Also reachable at /eet.
+      operationId: trackEventGet
+      parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/UserUuid'
+      - $ref: '#/components/parameters/SessionSkus'
+      - name: coords
+        in: query
+        required: false
+        schema:
+          type: string
+          format: byte
+        example: eyJ4MCI6MC4xLCJ5MCI6MC4yLCJ4MSI6MC41LCJ5MSI6MC42fQ==
+        description: Same bounding-box coordinates as on the POST operation above.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              description: Same optional merge-in body semantics as the POST operation above.
+      responses:
+        '204':
+          description: Event accepted. Always 204 No Content.
+        '400':
+          description: A request body was supplied but is not valid JSON, or account_id/API key is missing or invalid.
+        '401':
+          description: The supplied API key does not match the account's configured key.
+        '403':
+          description: The account is blacklisted, unconfigured, or not permitted from this location.
+  /eet:
+    servers:
+    - url: https://syteapi.com
+      description: Production. Event tracking is not served from the CDN host.
+    post:
+      tags:
+      - Event tracking
+      summary: Track an event (alias)
+      operationId: trackEventAlias
+      parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/UserUuid'
+      - $ref: '#/components/parameters/SessionSkus'
+      - name: coords
+        in: query
+        required: false
+        schema:
+          type: string
+          format: byte
+        example: eyJ4MCI6MC4xLCJ5MCI6MC4yLCJ4MSI6MC41LCJ5MSI6MC42fQ==
+        description: Same bounding-box coordinates as on /et's POST operation.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              description: Same optional merge-in body semantics as /et's POST operation.
+      responses:
+        '204':
+          description: Event accepted. Always 204 No Content.
+        '400':
+          description: The request body is not valid JSON, or account_id/API key is missing or invalid.
+        '401':
+          description: The supplied API key does not match the account's configured key.
+        '403':
+          description: The account is blacklisted, unconfigured, or not permitted from this location.
+      description: Track an interaction event (alias of /et).
+      x-hidden: true
+    get:
+      tags:
+      - Event tracking
+      summary: Track an event (alias, GET)
+      operationId: trackEventGetAlias
+      parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/UserUuid'
+      - $ref: '#/components/parameters/SessionSkus'
+      - name: coords
+        in: query
+        required: false
+        schema:
+          type: string
+          format: byte
+        example: eyJ4MCI6MC4xLCJ5MCI6MC4yLCJ4MSI6MC41LCJ5MSI6MC42fQ==
+        description: Same bounding-box coordinates as on /et's GET operation.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              description: Same optional merge-in body semantics as /et's GET operation.
+      responses:
+        '204':
+          description: Event accepted. Always 204 No Content.
+        '400':
+          description: A request body was supplied but is not valid JSON, or account_id/API key is missing or invalid.
+        '401':
+          description: The supplied API key does not match the account's configured key.
+        '403':
+          description: The account is blacklisted, unconfigured, or not permitted from this location.
+      description: Track an interaction event via GET (alias of /et).
+      x-hidden: true
+  /{accountid}/v2/recently-viewed:
+    parameters:
+    - $ref: '#/components/parameters/AccountIdPath'
+    - $ref: '#/components/parameters/V2Fields'
+    - $ref: '#/components/parameters/V2SizeColorVariants'
+    - $ref: '#/components/parameters/VariantFields'
+    - $ref: '#/components/parameters/AdditionalSizeVariantFields'
+    get:
+      tags:
+      - Recently viewed
+      summary: Get recently viewed items
+      operationId: getRecentlyViewed
+      security:
+      - SyteApiKeyHeader: []
+      parameters:
+      - $ref: '#/components/parameters/UserUuid'
+      - $ref: '#/components/parameters/RecentlyViewedSku'
+      - $ref: '#/components/parameters/Feed'
+      - $ref: '#/components/parameters/Locale'
+      - $ref: '#/components/parameters/RecentlyViewedForceCurrency'
+      responses:
+        '200':
+          description: The user's recently-viewed items.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecentlyViewedListResponse'
+        '500':
+          description: An error response from the recently-viewed service, passed through unchanged.
+      description: Get a user's recently-viewed items.
+    delete:
+      tags:
+      - Recently viewed
+      summary: Remove a recently viewed item
+      operationId: deleteRecentlyViewed
+      security:
+      - SyteApiKeyHeader: []
+      parameters:
+      - $ref: '#/components/parameters/RecentlyViewedUserUuidRequired'
+      - $ref: '#/components/parameters/RecentlyViewedSkuRequired'
+      responses:
+        '200':
+          description: Confirmation that the item was removed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Missing user_uuid or sku.
+        '403':
+          description: The target item does not belong to the given user.
+        '404':
+          description: The item was not found in the user's recently-viewed list.
+      description: Remove an item from a user's recently-viewed list.
+  /{accountid}/v2/recently-viewed/sync:
+    patch:
+      tags:
+      - Recently viewed
+      summary: Merge recently viewed histories
+      operationId: syncRecentlyViewed
+      security:
+      - SyteApiKeyHeader: []
+      parameters:
+      - $ref: '#/components/parameters/AccountIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - source_uuid
+              - target_uuid
+              properties:
+                source_uuid:
+                  type: string
+                  format: uuid
+                  description: History is merged from this user.
+                target_uuid:
+                  type: string
+                  format: uuid
+                  description: History is merged into this user.
+      responses:
+        '200':
+          description: Confirmation that the histories were merged.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Missing source_uuid/target_uuid, or they are identical.
+        '404':
+          description: source_uuid does not exist or has no viewed items.
+      description: Merge one user's recently-viewed history into another's.
+  /{accountid}/v2/collections:
+    parameters:
+    - $ref: '#/components/parameters/AccountIdPath'
+    - $ref: '#/components/parameters/V2Fields'
+    - $ref: '#/components/parameters/V2ResponseFormat'
+    - $ref: '#/components/parameters/V2SizeColorVariants'
+    - $ref: '#/components/parameters/VariantFields'
+    - $ref: '#/components/parameters/AdditionalSizeVariantFields'
+    get:
+      tags:
+      - Collections and galleries
+      summary: Get collection products
+      operationId: getCollections
+      security:
+      - SyteApiKeyHeader: []
+      parameters:
+      - $ref: '#/components/parameters/Feed'
+      - $ref: '#/components/parameters/CollectionsFilters'
+      - $ref: '#/components/parameters/CollectionsFrom'
+      - $ref: '#/components/parameters/Locale'
+      - $ref: '#/components/parameters/SessionSkus'
+      - $ref: '#/components/parameters/CollectionsSize'
+      - $ref: '#/components/parameters/CollectionsSku'
+      - $ref: '#/components/parameters/CollectionsSorting'
+      - $ref: '#/components/parameters/SyteContext'
+      - $ref: '#/components/parameters/VariantId'
+      - $ref: '#/components/parameters/UserUuid'
+      responses:
+        '200':
+          description: The collection's products, with field/variant filtering applied.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionsResponse'
+        '400':
+          description: Missing or empty collection_id.
+        '500':
+          description: An error response from the collections service, passed through unchanged.
+      description: Get a merchandising collection's products.
+    post:
+      tags:
+      - Collections and galleries
+      summary: Evaluate a dynamic collection
+      operationId: postCollections
+      security:
+      - SyteApiKeyHeader: []
+      parameters:
+      - $ref: '#/components/parameters/Feed'
+      - $ref: '#/components/parameters/CollectionsFilters'
+      - $ref: '#/components/parameters/CollectionsFrom'
+      - $ref: '#/components/parameters/Locale'
+      - $ref: '#/components/parameters/SessionSkus'
+      - $ref: '#/components/parameters/CollectionsSize'
+      - $ref: '#/components/parameters/CollectionsSku'
+      - $ref: '#/components/parameters/CollectionsSorting'
+      - $ref: '#/components/parameters/SyteContext'
+      - $ref: '#/components/parameters/VariantId'
+      - $ref: '#/components/parameters/UserUuid'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                collection_rules:
+                  type: object
+                  description: Rule-group conditions defining the dynamic collection.
+                merchandising_rules:
+                  type: array
+                  items:
+                    type: object
+                  description: Merchandising rules to apply to the collection's results.
+                ranking_strategies:
+                  type: array
+                  items:
+                    type: object
+                  description: Ranking strategies to apply to the collection's results.
+              description: Optional. Without a body, the collection is evaluated from `collection_id` alone.
+      responses:
+        '200':
+          description: The evaluated collection's products, with field/variant filtering applied.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionsResponse'
+        '500':
+          description: An error response from the collections service, passed through unchanged.
+      description: Create or evaluate a dynamic collection.
+  /{accountid}/v2/collections/products:
+    parameters:
+    - $ref: '#/components/parameters/AccountIdPath'
+    - $ref: '#/components/parameters/V2Fields'
+    - $ref: '#/components/parameters/V2ResponseFormat'
+    - $ref: '#/components/parameters/V2SizeColorVariants'
+    - $ref: '#/components/parameters/VariantFields'
+    - $ref: '#/components/parameters/AdditionalSizeVariantFields'
+    post:
+      tags:
+      - Collections and galleries
+      summary: Match products to collection rules
+      operationId: postCollectionsProducts
+      security:
+      - SyteApiKeyHeader: []
+      parameters:
+      - $ref: '#/components/parameters/Feed'
+      - $ref: '#/components/parameters/CollectionsFilters'
+      - $ref: '#/components/parameters/CollectionsFrom'
+      - $ref: '#/components/parameters/Locale'
+      - $ref: '#/components/parameters/SessionSkus'
+      - $ref: '#/components/parameters/CollectionsSize'
+      - $ref: '#/components/parameters/CollectionsSku'
+      - $ref: '#/components/parameters/CollectionsSorting'
+      - $ref: '#/components/parameters/SyteContext'
+      - $ref: '#/components/parameters/VariantId'
+      - $ref: '#/components/parameters/UserUuid'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - collection_rules
+              properties:
+                collection_rules:
+                  type: array
+                  items:
+                    type: object
+                  description: Rules to match products against.
+      responses:
+        '200':
+          description: Matching products, with field/variant filtering applied.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionsResponse'
+        '400':
+          description: Missing or malformed collection_rules.
+        '500':
+          description: An error response from the collections service, passed through unchanged.
+      description: Match products against an ad-hoc set of collection rules.
+  /{accountid}/v2/galleries/shoppable/{galleryId}:
+    get:
+      tags:
+      - Collections and galleries
+      summary: Get a shoppable gallery
+      operationId: getGalleryShoppable
+      security:
+      - SyteApiKeyHeader: []
+      parameters:
+      - $ref: '#/components/parameters/AccountIdPath'
+      - name: galleryId
+        in: path
+        required: true
+        schema:
+          type: string
+        example: 64f1c2a9e7b3d4f10a2b5c3d
+        description: Identifies the shoppable gallery to fetch.
+      - $ref: '#/components/parameters/GalleriesFields'
+      - $ref: '#/components/parameters/Feed'
+      - $ref: '#/components/parameters/Locale'
+      responses:
+        '200':
+          description: The gallery's content.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GalleryResponse'
+        '400':
+          description: An error response from the galleries service, passed through unchanged.
+      description: Get a shoppable gallery's content.
+  /{accountid}/v2/widget/image:
+    parameters:
+    - $ref: '#/components/parameters/AccountIdPath'
+    get:
+      tags:
+      - Widgets
+      summary: Render a widget image
+      operationId: getWidgetImage
+      security:
+      - SyteApiKeyHeader: []
+      parameters:
+      - $ref: '#/components/parameters/WidgetSyteProduct'
+      - $ref: '#/components/parameters/UserUuid'
+      - $ref: '#/components/parameters/WidgetSku'
+      - $ref: '#/components/parameters/SessionSkus'
+      - $ref: '#/components/parameters/Locale'
+      responses:
+        '200':
+          description: Raw JPEG image of the rendered widget offer.
+        '400':
+          description: Malformed data_filters, or position out of range for the resolved offer set.
+        '403':
+          description: Email-marketing widgets are not enabled for the account.
+      description: Returns an image of the product at the requested position in the widget.
+  /{accountid}/v2/widget/header:
+    parameters:
+    - name: accountid
+      in: path
+      required: true
+      schema:
+        type: string
+      example: '12345'
+      description: Identifies the Syte account the request applies to.
+    get:
+      tags:
+      - Widgets
+      summary: Render a widget header
+      operationId: getWidgetHeader
+      security:
+      - SyteApiKeyHeader: []
+      parameters:
+      - $ref: '#/components/parameters/WidgetSyteProduct'
+      - $ref: '#/components/parameters/UserUuid'
+      - $ref: '#/components/parameters/WidgetSku'
+      - $ref: '#/components/parameters/SessionSkus'
+      - $ref: '#/components/parameters/Locale'
+      responses:
+        '200':
+          description: Raw PNG image of the rendered widget header.
+        '400':
+          description: Malformed data_filters, or position out of range for the resolved offer set.
+        '403':
+          description: Email-marketing widgets are not enabled for the account.
+      description: Returns the widget header or text tile as an image.
+  /{accountid}/v2/widget/redirect:
+    parameters:
+    - name: accountid
+      in: path
+      required: true
+      schema:
+        type: string
+      example: '12345'
+      description: Identifies the Syte account the request applies to.
+    get:
+      tags:
+      - Widgets
+      summary: Widget click-through
+      operationId: getWidgetRedirect
+      security:
+      - SyteApiKeyHeader: []
+      parameters:
+      - $ref: '#/components/parameters/WidgetSyteProduct'
+      - $ref: '#/components/parameters/UserUuid'
+      - $ref: '#/components/parameters/WidgetSku'
+      - $ref: '#/components/parameters/SessionSkus'
+      - $ref: '#/components/parameters/Locale'
+      responses:
+        '302':
+          description: Redirect to the resolved advertiser URL.
+        '400':
+          description: Malformed data_filters, or position out of range for the resolved offer set.
+        '403':
+          description: Email-marketing widgets are not enabled for the account.
+      description: Resolve a widget offer and redirect to its (UTM-tagged) advertiser URL.
+components:
+  securitySchemes:
+    ApiKeyHeader:
+      type: apiKey
+      in: header
+      name: x-api-key
+      description: Your Syte API key. Use this for server-side calls.
+    ApiKeyQuery:
+      type: apiKey
+      in: query
+      name: api_key
+      description: The same API key, passed as a query parameter.
+    SyteApiKeyHeader:
+      type: apiKey
+      in: header
+      name: syte-api-key
+      description: Your Syte API key, for the recently viewed, collections, gallery and widget endpoints. These
+        endpoints do not accept `x-api-key` or `api_key`.
+  parameters:
+    AccountId:
+      name: account_id
+      in: query
+      required: true
+      schema:
+        type: string
+      example: '12345'
+      description: Identifies the Syte account the request is scoped to.
+    AccountIdPath:
+      name: accountid
+      in: path
+      required: true
+      schema:
+        type: string
+      example: '12345'
+      description: Identifies the Syte account the request is scoped to, carried as a path segment.
+    AdditionalSizeVariantFields:
+      name: additional_size_variant_fields
+      in: query
+      required: false
+      schema:
+        type: array
+        items:
+          type: string
+      style: form
+      explode: false
+      example:
+      - size_eu
+      - size_uk
+      description: Comma-separated extra size-variant fields, added on top of variant_fields.
+    Catalog:
+      name: catalog
+      in: query
+      required: false
+      schema:
+        type: string
+      example: fashion
+      description: Product catalog/vertical (e.g. fashion, home, diy) to match or tag against.
+    CollectionsFilters:
+      name: filters
+      in: query
+      required: false
+      schema:
+        type: string
+      example: color:blue
+      description: Server-side filter expression applied to the collection's items.
+    CollectionsFrom:
+      name: from
+      in: query
+      required: false
+      schema:
+        type: integer
+        default: 0
+      example: 0
+      description: Pagination offset into the collection's matched items; defaults to 0.
+    CollectionsSize:
+      name: size
+      in: query
+      required: false
+      schema:
+        type: integer
+        default: 20
+      example: 20
+      description: Page size for the collection's matched items; defaults to 20.
+    CollectionsSku:
+      name: sku
+      in: query
+      required: false
+      schema:
+        type: string
+      example: ABC123
+      description: Restricts or biases the collection lookup to a specific product SKU.
+    CollectionsSorting:
+      name: sorting
+      in: query
+      required: false
+      schema:
+        type: string
+      example: asc
+      description: Sort direction, accepted alongside sort as a separate parameter on the same request.
+    Feed:
+      name: feed
+      in: query
+      required: false
+      schema:
+        type: string
+      example: default
+      description: Overrides the account's default feed for this request.
+    Fields:
+      name: fields
+      in: query
+      required: false
+      schema:
+        type: array
+        items:
+          type: string
+      style: form
+      explode: false
+      example:
+      - sku
+      - price
+      - imageUrl
+      description: Comma-separated sparse fieldset selecting which fields to include in the response.
+    GalleriesFields:
+      name: fields
+      in: query
+      required: false
+      schema:
+        type: array
+        items:
+          type: string
+      style: form
+      explode: false
+      example:
+      - categories
+      - gender
+      - title
+      description: Comma-separated fields to include on each matched product; a small default set is always included
+        regardless.
+    Locale:
+      name: locale
+      in: query
+      required: false
+      schema:
+        type: string
+      example: en-US
+      description: BCP-47 locale for locale-sensitive response content; falls back to the account's default when
+        omitted.
+    MatchFilter:
+      name: match_filter
+      in: query
+      required: false
+      schema:
+        type: string
+        format: byte
+      example: eyJjb2xvciI6ImJsdWUifQ==
+      description: Base64-encoded JSON filter object, applied server-side to narrow matched results.
+    V2Fields:
+      name: fields
+      in: query
+      required: false
+      schema:
+        type: string
+      example: sku,price,imageUrl
+    V2ResponseFormat:
+      name: response_format
+      in: query
+      required: false
+      schema:
+        type: string
+        enum:
+        - items
+        - carousel
+      example: items
+      description: Selects the response layout for the collections endpoints - standard items or carousel.
+    V2SizeColorVariants:
+      name: size_color_variants
+      in: query
+      required: false
+      schema:
+        type: boolean
+    RecentlyViewedForceCurrency:
+      name: force_currency
+      in: query
+      required: false
+      schema:
+        type: string
+      example: USD
+      description: Overrides the account's default currency for displayed prices.
+    RecentlyViewedSku:
+      name: sku
+      in: query
+      required: false
+      schema:
+        type: string
+      example: ABC123
+      description: Identifies a product to fetch alongside the recently-viewed list, or to remove from it.
+    RecentlyViewedSkuRequired:
+      name: sku
+      in: query
+      required: true
+      schema:
+        type: string
+      example: ABC123
+      description: Identifies the item to remove from the recently-viewed list.
+    RecentlyViewedUserUuidRequired:
+      name: user_uuid
+      in: query
+      required: true
+      schema:
+        type: string
+        format: uuid
+      example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+      description: Identifies whose recently-viewed history to modify; required on this operation.
+    SessionId:
+      name: session_id
+      in: query
+      required: false
+      schema:
+        type: string
+      example: sess_9f2c8a
+      description: Client-generated identifier for the current browsing/shopping session.
+    SessionSkus:
+      name: session_skus
+      in: query
+      required: false
+      schema:
+        type: array
+        items:
+          type: string
+      style: form
+      explode: false
+      example:
+      - SKU123
+      - SKU456
+      description: Comma-separated SKUs already seen or interacted with in the current session, used to bias or
+        exclude results.
+    SyteAppRef:
+      name: syte_app_ref
+      in: query
+      required: false
+      schema:
+        type: string
+      example: syte-widget-v3
+      description: Identifies the calling app/SDK build, for analytics and debugging.
+    SyteContext:
+      name: syte_context
+      in: query
+      required: false
+      schema:
+        type: string
+      example: widget
+      description: Identifies the calling surface/integration and scopes which merchandising rules apply to the
+        request.
+    UserUuid:
+      name: user_uuid
+      in: query
+      required: false
+      schema:
+        type: string
+        format: uuid
+      example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+      description: Stable per-user identifier for personalization/attribution across sessions. Also accepted as
+        syte_uuid.
+    VariantFields:
+      name: variant_fields
+      in: query
+      required: false
+      schema:
+        type: array
+        items:
+          type: string
+      style: form
+      explode: false
+      example:
+      - color
+      - size
+      description: Comma-separated variant-level fields to resolve alongside each matched or returned product.
+    VariantId:
+      name: variant_id
+      in: query
+      required: false
+      schema:
+        type: string
+      example: variant_b
+      description: Forces a specific A/B-test variant instead of letting the system assign one automatically.
+    WidgetSku:
+      name: sku
+      in: query
+      required: false
+      schema:
+        type: string
+      description: Product SKU used for the widget's cache key and item lookup.
+    WidgetSyteProduct:
+      name: syte_product
+      in: query
+      required: false
+      schema:
+        type: string
+        enum:
+        - similars
+        - collections
+        - ctl
+        - stl
+        - fbt
+        - recently_viewed
+      example: similars
+      description: Overrides the render strategy used for this campaign.
+  schemas:
+    CollectionsResponse:
+      type: object
+      description: Contains either `result` or `results`, depending on `response_format` (`items` by default, or
+        `carousel`).
+      properties:
+        result:
+          type: object
+          description: Default (non-carousel) format.
+          properties:
+            aggregations:
+              type: object
+            hits:
+              type: array
+              items:
+                type: object
+            total:
+              oneOf:
+              - type: integer
+              - type: string
+              description: Total number of matching products.
+        results:
+          type: object
+          description: Carousel format (`response_format=carousel`).
+          properties:
+            aggregations:
+              type: object
+            products:
+              type: array
+              items:
+                type: object
+            total:
+              oneOf:
+              - type: integer
+              - type: string
+              description: Total number of matching products.
+            displayTitle:
+              type: string
+        message:
+          type: string
+          nullable: true
+          description: Default (non-carousel) format only.
+        error:
+          type: string
+          nullable: true
+          description: Default (non-carousel) format only.
+        feed:
+          type: string
+        fallbackApplied:
+          type: boolean
+          description: GET-only - see class description above.
+        currency:
+          type: object
+          properties:
+            rate:
+              type: number
+            currency:
+              type: string
+            originCurrency:
+              type: string
+            symbol:
+              type: string
+          description: Carousel format only.
+    GalleryResponse:
+      type: object
+      description: The shoppable gallery's content.
+      properties:
+        id:
+          type: string
+        displayTitle:
+          type: string
+        layout:
+          type: object
+          properties:
+            type:
+              type: string
+            gridImagesPerRow:
+              type: number
+            gridNumberOfRows:
+              type: number
+            carouselNumberOfImages:
+              type: number
+        showSimilarProductWhenUnavailable:
+          type: boolean
+        galleryName:
+          type: string
+        images:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              imageUrl:
+                type: string
+              altText:
+                type: string
+              caption:
+                type: string
+              tags:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                    isAIDetected:
+                      type: boolean
+                    sku:
+                      type: string
+                    title:
+                      type: string
+                    coordinates:
+                      type: object
+                      properties:
+                        x:
+                          type: number
+                        y:
+                          type: number
+                    matchDetails:
+                      type: object
+                      properties:
+                        matchType:
+                          type: string
+                        reason:
+                          type: string
+                        similarsRequest:
+                          type: string
+              usage:
+                type: string
+        updatedAt:
+          type: string
+        bannerLink:
+          type: string
+        bannerTextLink:
+          type: string
+    PersonalizationResponse:
+      type: object
+      description: Recommendation results.
+      properties:
+        results:
+          type: array
+          items:
+            type: object
+            description: Opaque product object, shape driven by `fields`/ES doc.
+        fallback:
+          type: string
+          example: best_sellers_no_SKU_param
+          description: Either `"null"` or `"imageUrl"`. Present when `imageUrl` was supplied.
+        modelName:
+          type: string
+          description: Present when results came directly from the recommendation model.
+        experimentId:
+          type: string
+          description: Present only when the account's settings define an active experiment.
+        variantId:
+          type: string
+          description: Present only when the account's settings define an active experiment.
+    RecentlyViewedListResponse:
+      type: object
+      description: The user's recently viewed products, most recent first.
+      properties:
+        results:
+          type: array
+          items:
+            type: object
+        currency:
+          type: object
+          properties:
+            rate:
+              type: number
+            originCurrency:
+              type: string
+            currency:
+              type: string
+            symbol:
+              type: string
+        requestId:
+          type: string
+        feed:
+          type: string
+          nullable: true
+    MessageResponse:
+      type: object
+      description: Confirmation returned when a recently viewed item is removed or histories are merged.
+      properties:
+        message:
+          type: string
+        requestId:
+          type: string
+security:
+- ApiKeyHeader: []
+- ApiKeyQuery: []

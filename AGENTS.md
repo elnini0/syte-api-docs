@@ -18,20 +18,21 @@
 
 ## Terminology
 
-{/* Add product-specific terms and preferred usage */}
-{/* Example: Use "workspace" not "project", "member" not "user" */}
+- "Account ID" is the numeric Syte account ID. Never call it shop ID.
+- "API key" for the Syte key, whichever header carries it.
 
 ## Style preferences
 
 {/* Add any project-specific style rules below */}
 
 - Use active voice and second person ("you")
-- Keep sentences concise — one idea per sentence
+- Keep sentences concise, one idea per sentence
 - Use sentence case for headings
 - Bold for UI elements: Click **Settings**
 - Code formatting for file names, commands, paths, and code references
 
 ## Content boundaries
 
-{/* Define what should and shouldn't be documented */}
-{/* Example: Don't document internal admin features */}
+- Public endpoints and parameters only. Health checks, ad-click redirects, image tagging, debug, profiling and internal flags stay out.
+- No internal service names, code paths, data warehouse tables or customer names. Use placeholder SKUs, URLs and account IDs.
+- No em dashes anywhere.

@@ -1,0 +1,98 @@
+---
+title: "Event tracking"
+description: "Send the events Syte uses to measure clicks, add to cart and purchases."
+---
+
+Send events to `POST https://syteapi.com/et`. The event name and your account details go in the query string, and the event data goes in a JSON body.
+
+<Warning>
+  The endpoint always returns `204` and doesn't check event names or fields. A misspelled event or field returns the same `204` as a correct one, so check your first events with Syte before you go live.
+</Warning>
+
+Things to know:
+
+- Use `syteapi.com`. The CDN host `cdn-api.syteapi.com` does not serve `/et`.
+- `GET` works the same as `POST`. `/eet` is an alias of `/et`.
+- The query string and body are merged. If the same key appears in both, the query string wins.
+- Authenticate with your API key, the same way as other endpoints. See [Authentication](/authentication).
+
+## Common parameters
+
+Send these on every event, in the query string.
+
+| Parameter | Example | Notes |
+| --- | --- | --- |
+| `name` | `checkout_complete` | The event type |
+| `account_id` | `12345` | Your account ID, a number |
+| `syte_uuid` | `3937ccd0-9b3b-11f1-abcb-bb174bf5c8dd` | A stable ID for the shopper |
+| `session_id` | `65456370` | The shopper's current session |
+| `lang` | `en_US` | The shopper's locale |
+| `syte_url_referer` | `https%3A%2F%2Fshop.example.com%2Fp%2F123` | The page URL, URL-encoded |
+
+## Ecommerce events
+
+These come from your site, so you send them yourself. They all carry a `rawData` field whose value is a **JSON string**, not an object.
+
+### Add to cart
+
+```json products_added_to_cart
+{
+  "rawData": "{\"products\":[{\"sku\":\"ABC123\",\"quantity\":1,\"price\":49.99}]}"
+}
+```
+
+### Checkout started
+
+```json checkout_start
+{
+  "rawData": "{\"value\":\"62.94\",\"currency\":\"EUR\",\"products\":[{\"sku\":\"ABC123\",\"quantity\":1,\"price\":\"59.99\"}]}"
+}
+```
+
+### Purchase
+
+```json checkout_complete
+{
+  "rawData": "{\"id\":\"ORDER-1001\",\"value\":\"23.79\",\"currency\":\"EUR\",\"products\":[{\"sku\":\"ABC123\",\"quantity\":1,\"price\":\"19.99\"},{\"sku\":\"DEF456\",\"quantity\":1,\"price\":\"8.00\"}]}"
+}
+```
+
+<Warning>
+  `id` is your order ID and it's required. A purchase without it is never counted.
+</Warning>
+
+`value` is the order total after shipping and discounts, so it won't always match the sum of the product prices.
+
+## Visual search events
+
+Syte's JavaScript tag sends interaction events for you. If you build the experience through the API instead, these two events are what click-through is measured from.
+
+### Results shown
+
+Send `fe_bb_show_results` when you display results for a detected product.
+
+```json fe_bb_show_results
+{
+  "image_url": "https://shop.example.com/images/123.jpg",
+  "category": "Trousers",
+  "results_count": 20,
+  "skus": "ABC123,DEF456,GHI789",
+  "sku": "XYZ999",
+  "bound_index": 0
+}
+```
+
+### Result clicked
+
+Send `fe_offer_click` when a shopper clicks a result.
+
+```json fe_offer_click
+{
+  "sku": "ABC123",
+  "position": 1,
+  "source_sku": "XYZ999",
+  "target_url": "https://shop.example.com/p/abc123"
+}
+```
+
+A click is matched to its results by `session_id` and `syte_uuid`, with `source_sku` equal to the `sku` of the results event.
