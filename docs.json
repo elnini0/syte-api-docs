@@ -37,6 +37,12 @@
             "pages": [
               "sdks"
             ]
+          },
+          {
+            "group": "MCP",
+            "pages": [
+              "mcp"
+            ]
           }
         ]
       },
