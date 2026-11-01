@@ -1,0 +1,25 @@
+/*
+  Syte yellow accents for light mode.
+  Yellow text is unreadable on white, so yellow is only used for fills and markers here.
+  Dark mode already uses yellow through colors.light in docs.json.
+*/
+
+html:not(.dark) #sidebar li[data-active-nav-item="true"] > a {
+  background-color: #FFFAE6;
+  box-shadow: inset 3px 0 0 #FFCD00;
+}
+
+html:not(.dark) a.nav-tabs-item[data-active="true"] > div {
+  background-color: #FFCD00;
+  height: 2px;
+}
+
+html:not(.dark) [data-component-part="step-indicator"] {
+  background-color: #FFCD00;
+  color: #262626;
+}
+
+html:not(.dark) #content-area a.link {
+  border-bottom-color: #FFCD00;
+  text-decoration-color: #FFCD00;
+}
